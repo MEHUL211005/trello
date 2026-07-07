@@ -4,7 +4,10 @@ import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useParams } from "react-router-dom";
-
+import {
+  PanelLeftClose,
+  MoreHorizontal,
+} from "lucide-react";
 import {
   addCard,
   deleteList,
@@ -119,37 +122,62 @@ function List({ list }) {
           setSortableRef(node);
         }}
         style={style}
-        className="w-[280px] sm:w-80 flex-shrink-0 rounded-2xl border border-slate-700 bg-slate-800 shadow-lg"
+        className="w-[100px] sm:w-[340px] flex-shrink-0 rounded-xl bg-[#F1F2F4] shadow-sm"
       >
         {/* HEADER */}
-        <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
-          <h2
-            {...attributes}
-            {...listeners}
-            className="cursor-grab select-none text-lg font-semibold text-slate-100"
-          >
-            {list.title}
-          </h2>
+        {/* HEADER */}
+<div className="flex items-center justify-between px-3 py-2">
+  {/* Left */}
+  <h2
+    {...attributes}
+    {...listeners}
+    className="cursor-grab select-none text-sm font-semibold text-slate-800"
+  >
+    {list.title}
+  </h2>
 
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="cursor-pointer rounded-md px-2 py-1 text-red-400 hover:bg-slate-700 hover:text-red-300"
-          >
-            ✕
-          </button>
-        </div>
+  {/* Right */}
+  <div className="flex items-center gap-1">
+    {/* Number of Cards */}
+    <button className="flex h-7 min-w-7 items-center justify-center rounded-md px-2 text-xs font-medium text-slate-600 hover:bg-slate-300 transition">
+      {list.cards.length}
+    </button>
+
+    {/* Collapse */}
+    <button className="rounded-md p-1.5 text-slate-600 hover:bg-slate-300 transition cursor-pointer">
+      <PanelLeftClose size={16} />
+    </button>
+
+    {/* More Options */}
+    <button className="rounded-md p-1.5 text-slate-600 hover:bg-slate-300 transition cursor-pointer">
+      <MoreHorizontal size={16} />
+    </button>
+
+    {/* Delete */}
+    <button
+      onClick={() => setShowDeleteModal(true)}
+      className="rounded-md p-1.5 text-red-500 hover:bg-red-100 hover:text-red-600 transition cursor-pointer"
+    >
+      ✕
+    </button>
+  </div>
+</div>
 
         {/* CARDS */}
-        <div className="space-y-3 p-4">
-          {list.cards.map((card) => (
-            <Card
-              key={card.id}
-              card={card}
-              onDelete={handleDeleteCard}
-              onEdit={handleEditCard}
-            />
-          ))}
-        </div>
+       <div
+  className={`space-y-2 px-2 ${
+    list.cards.length ? "pt-2 pb-2" : "py-0"
+  }`}
+>
+  {list.cards.map((card) => (
+    <Card
+      key={card.id}
+      card={card}
+      onDelete={handleDeleteCard}
+      onEdit={handleEditCard}
+    />
+  ))}
+</div>
 
         {/* ADD CARD */}
         {isAddingCard ? (
@@ -158,7 +186,7 @@ function List({ list }) {
               value={cardTitle}
               onChange={(e) => setCardTitle(e.target.value)}
               placeholder="Enter card title..."
-              className="w-full resize-none rounded-lg border border-slate-600 bg-slate-700 p-3 text-slate-100 outline-none focus:border-blue-500"
+              className="w-full resize-none rounded-lg border border-slate-300 bg-white text-slate-800 outline-none focus:border-blue-500"
             />
 <label className="mt-2 flex cursor-pointer items-center justify-center rounded-lg border border-slate-600 bg-slate-700 p-3 text-slate-100 hover:bg-slate-600">
   Choose Image
@@ -187,9 +215,9 @@ function List({ list }) {
             <div className="mt-3 flex gap-2">
               <button
                 onClick={handleAddCard}
-                className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-500"
+                className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-500 text-slate-100"
               >
-                Add Card
+                Add a Card
               </button>
 
               <button
@@ -198,16 +226,16 @@ function List({ list }) {
                   setCardTitle("");
                   setCardImage(null);
                 }}
-                className="cursor-pointer rounded-lg bg-slate-700 px-4 py-2 hover:bg-slate-600"
+                className="cursor-pointer rounded-lg bg-slate-700 px-4 py-2 hover:bg-slate-600 text-slate-100"
               >
-                Cancel
+                X
               </button>
             </div>
           </div>
         ) : (
           <button
             onClick={() => setIsAddingCard(true)}
-            className="cursor-pointer m-4 w-[calc(100%-2rem)] rounded-xl border border-dashed border-slate-600 bg-slate-800 py-3 text-slate-300 hover:border-blue-500 hover:bg-slate-700 hover:text-white"
+            className="mx-2 mb-2 mt-1 w-[calc(100%-1rem)] cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-300"
           >
             + Add Card
           </button>

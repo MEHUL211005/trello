@@ -118,11 +118,11 @@ const [showCreateModal, setShowCreateModal] = useState(false);
   setSearch={setSearch}
   placeholder="Search boards..."
 />
-<div className="flex">
+<div className="flex gap-30">
 
   <Sidebar />
 
-  <main className="flex-1 overflow-auto pt-8">
+ <main className="flex-1 overflow-auto pt-8 px-6">
 
       {/* MAIN */}
       <div className="mb-10 ml-8 flex items-center gap-5">
@@ -134,15 +134,14 @@ const [showCreateModal, setShowCreateModal] = useState(false);
 
   {/* Workspace Details */}
   <div>
-    <h1 className="text-3xl font-bold text-slate-500">
+    <h1 className="text-3xl font-bold text-slate-800">
       {workspace.name}
     </h1>
 
     <div className="mt-1 flex items-center gap-2">
-      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
-        Private Workspace
+      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+      Private Workspace
       </span>
-
       <span className="text-sm text-slate-500">
         {workspace.boards.length} Boards
       </span>
@@ -157,11 +156,11 @@ const [showCreateModal, setShowCreateModal] = useState(false);
   </div>
 
   <div>
-    <h1 className="text-2xl font-semibold text-slate-400">
+    <h1 className="text-2xl font-semibold text-slate-800">
       Your Boards
     </h1>
 
-    <p className="text-sm text-slate-400">
+   <p className="text-sm text-slate-500">
       {workspace.boards.length} boards
     </p>
   </div>
@@ -188,25 +187,33 @@ const [showCreateModal, setShowCreateModal] = useState(false);
       {editBoardId === board.id ? (
         <div>
           <input
-            value={editBoardName}
-            onChange={(e) => setEditBoardName(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2"
+          value={editBoardName}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setEditBoardName(e.target.value)}
+          className="w-full rounded-lg border border-slate-300 bg-white p-2 text-slate-800"
           />
 
           <div className="mt-2 flex gap-2">
             <button
-              onClick={handleEditBoard}
-              className="flex-1 rounded-lg bg-blue-600 py-2"
-            >
-              Save
-            </button>
+            onClick={(e) => {
+           e.stopPropagation();
+          handleEditBoard();
+          }}
+          className="flex-1 rounded-lg bg-sky-600 py-2 text-white hover:bg-sky-500 cursor-pointer"
+         >
+          Save
+        </button>
 
-            <button
-              onClick={() => setEditBoardId(null)}
-              className="flex-1 rounded-lg bg-slate-700 py-2"
-            >
-              Cancel
-            </button>
+           <button
+           onClick={(e) => {
+          e.stopPropagation();
+          setEditBoardId(null);
+          setEditBoardName("");
+          }}
+          className="flex-1 rounded-lg bg-slate-200 text-slate-700 py-2 hover:bg-slate-300 cursor-pointer"
+          >
+          Cancel
+          </button>
           </div>
         </div>
       ) : (
@@ -258,11 +265,11 @@ const [showCreateModal, setShowCreateModal] = useState(false);
   {/* CREATE BOARD CARD (LAST) */}
   <div
     onClick={() => setShowCreateModal(true)}
-    className="flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2  border-slate-700 bg-slate-300 transition hover:border-blue-200 hover:bg-slate-400"
+    className="flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2  border-slate-300 bg-slate-200 transition hover:border-sky-400 hover:bg-slate-300"
   >
     {/* <div className="text-5xl text-slate-500">+</div> */}
 
-    <p className="mt-4 text-lg font-semibold">
+    <p className="mt-4 text-lg font-semibold text-slate-700">
       Create new Board
     </p>
   </div>
@@ -272,19 +279,19 @@ const [showCreateModal, setShowCreateModal] = useState(false);
 </main>
 </div>
 {showCreateModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
 
-    <div className="w-[90%] max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6">
+    <div className="w-[90%] max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
 
-      <h2 className="text-[15px] font-semibold text-gray-800">
-        Create Board
+      <h2 className="text-xl font-semibold text-slate-800">
+      Create Board
       </h2>
 
       <input
         value={boardName}
         onChange={(e) => setBoardName(e.target.value)}
         placeholder="Board name..."
-        className="mt-5 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 outline-none focus:border-blue-500"
+        className="mt-5 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:border-sky-500"
       />
 
       <div className="mt-6 flex justify-end gap-3">
@@ -294,14 +301,14 @@ const [showCreateModal, setShowCreateModal] = useState(false);
             setShowCreateModal(false);
             setBoardName("");
           }}
-          className="rounded-lg bg-slate-700 px-4 py-2 cursor-pointer"
+          className="rounded-lg bg-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-300 cursor-pointer"
         >
           Cancel
         </button>
 
         <button
           onClick={handleCreateBoard}
-          className="rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-500 cursor-pointer"
+          className="rounded-lg bg-sky-600 px-4 py-2 text-white hover:bg-sky-700 cursor-pointer"
         >
           Create
         </button>
@@ -314,14 +321,15 @@ const [showCreateModal, setShowCreateModal] = useState(false);
 )}
       {/* DELETE MODAL */}
       {deleteBoardId && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-slate-900 p-6 rounded-xl w-[350px] border border-slate-700">
+      <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
 
-            <h2 className="text-lg font-semibold">
+        <div className="bg-white p-6 rounded-xl w-[350px] border border-slate-200 shadow-xl">
+
+            <h2 className="text-lg font-semibold text-red-600">
               Delete Board?
             </h2>
 
-            <p className="text-sm text-slate-400 mt-2">
+            <p className="text-sm text-slate-500 mt-2">
               This action cannot be undone.
             </p>
 
@@ -329,14 +337,14 @@ const [showCreateModal, setShowCreateModal] = useState(false);
 
               <button
                 onClick={handleDeleteBoard}
-                className="flex-1 bg-red-600 py-2 rounded-lg"
+                className="flex-1 bg-red-600 py-2 rounded-lg text-white hover:bg-red-700 cursor-pointer"
               >
                 Delete
               </button>
 
               <button
                 onClick={() => setDeleteBoardId(null)}
-                className="flex-1 bg-slate-700 py-2 rounded-lg"
+                className="flex-1 bg-slate-200 py-2 rounded-lg text-slate-700 hover:bg-slate-300 cursor-pointer"
               >
                 Cancel
               </button>

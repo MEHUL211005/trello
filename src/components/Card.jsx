@@ -37,7 +37,7 @@ function Card({ card, onDelete, onEdit }) {
       <div
         ref={setNodeRef}
         style={style}
-        className="group rounded-xl border border-slate-700 bg-slate-700 p-3 shadow-sm hover:bg-slate-600"
+        className="group rounded-lg bg-white p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
       >
         {/* EDIT MODE */}
         {isEditing ? (
@@ -46,10 +46,10 @@ function Card({ card, onDelete, onEdit }) {
               value={editedTitle}
               onChange={(e) => setEditedTitle(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-slate-600 bg-slate-800 p-2 text-slate-100"
+              className="w-full rounded-lg border border-slate-300 bg-white text-slate-800"
             />
 
-            <label className="flex cursor-pointer items-center justify-center rounded-lg border border-slate-600 bg-slate-700 p-2 text-sm text-slate-100 hover:bg-slate-600">
+            <label className="flex cursor-pointer items-center justify-center rounded-lg border border-slate-600 bg-white p-2 text-sm text-slate-800 hover:bg-slate-600">
 Choose Image
   <input
     type="file"
@@ -75,7 +75,7 @@ Choose Image
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-500"
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-500 cursor-pointer"
               >
                 Save
               </button>
@@ -86,7 +86,7 @@ Choose Image
                   setEditedTitle(card.title);
                   setEditedImage(card.image || "");
                 }}
-                className="rounded-lg bg-slate-600 px-3 py-2 text-sm text-white hover:bg-slate-500"
+                className="rounded-lg bg-slate-600 px-3 py-2 text-sm text-white hover:bg-slate-500 cursor-pointer"
               >
                 Cancel
               </button>
@@ -99,32 +99,32 @@ Choose Image
               <img
                 src={card.image}
                 alt={card.title}
-                className="mb-3 h-40 w-full rounded-lg object-cover"
+               className="mb-2 h-28 w-full rounded-lg object-cover"
               />
             )}
 
             {/* CONTENT */}
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-2 ">
               <p
                 {...listeners}
                 {...attributes}
-                className="flex-1 cursor-grab text-sm font-medium text-slate-100"
+               className="flex-1 cursor-grab text-[14px] leading-5 font-medium text-slate-800"
                 onClick={() => setIsEditing(true)}
               >
                 {card.title}
               </p>
 
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100">
+              <div className="flex gap-1 opacity-0 transition-all duration-150 group-hover:opacity-100">
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="text-blue-400 hover:text-blue-300"
+                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                 >
                   <FaEdit />
                 </button>
 
                 <button
                   onClick={() => setShowDeleteModal(true)}
-                  className="text-red-400 hover:text-red-300"
+                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 cursor-pointer"
                 >
                   ✕
                 </button>

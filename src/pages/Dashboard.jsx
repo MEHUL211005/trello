@@ -114,7 +114,7 @@ const filteredWorkspaces = workspaces.filter((workspace) =>
       {/* MAIN */}
       <div className="mx-auto max-w-7xl px-6 py-8">
             <div className="mb-8 flex items-center gap-3">
-  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200">
+  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 cursor-pointer">
     <FaRegUserCircle className="text-xl text-slate-600" />
   </div>
 
@@ -133,26 +133,56 @@ const filteredWorkspaces = workspaces.filter((workspace) =>
             <div
   key={ws.id}
   onClick={() => navigate(`/workspace/${ws.id}`)}
-  className="group relative cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-200 hover:shadow-lg"
+  className="group relative cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
 >
   <img
   src={covers[index % covers.length]}
   alt={ws.name}
-  className="h-24 w-full object-cover"
+  className="h-32 w-full object-cover"
 />
 <div className="p-3">
               {/* TITLE */}
               {editingId === ws.id ? (
-                <input
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2"
-                />
-              ) : (
-                <h2 className="text-[15px] font-semibold text-gray-800">
-                  {ws.name}
-                </h2>
-              )}
+  <div className="space-y-2">
+
+    <input
+      value={editingName}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setEditingName(e.target.value)}
+      className="w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-800 outline-none focus:border-sky-500"
+    />
+
+    <div className="flex gap-2">
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleEdit();
+        }}
+        className="rounded-lg bg-sky-600 px-3 py-1 text-sm text-white hover:bg-sky-500 cursor-pointer"
+      >
+        Save
+      </button>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditingId(null);
+          setEditingName("");
+        }}
+        className="rounded-lg bg-slate-200 px-3 py-1 text-sm text-slate-700 hover:bg-slate-300 cursor-pointer"
+      >
+        Cancel
+      </button>
+
+    </div>
+
+  </div>
+) : (
+  <h2 className="text-[15px] font-semibold text-slate-800">
+    {ws.name}
+  </h2>
+)}
 
               <p className="mt-1 text-xs text-gray-500">
                 {ws.boards.length} Boards
@@ -161,51 +191,29 @@ const filteredWorkspaces = workspaces.filter((workspace) =>
               {/* ACTIONS */}
               <div className="absolute right-3 top-3 hidden gap-2 group-hover:flex">
 
-               
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setEditingId(ws.id);
+      setEditingName(ws.name);
+    }}
+    className="rounded-md bg-white p-2 text-slate-600 shadow hover:bg-slate-100 cursor-pointer"
+  >
+    <FaEdit />
+  </button>
 
-                {editingId === ws.id ? (
-                  <>
-                    <button
-  onClick={(e) => {
-    e.stopPropagation();
-    setEditingId(ws.id);
-    setEditingName(ws.name);
-  }}
-  className="rounded-md bg-white/90 p-2 text-gray-700 shadow hover:bg-gray-100"
->
-  <FaEdit />
-</button>
 
-              <button
-  onClick={(e) => {
-    e.stopPropagation();
-    setDeleteTarget(ws);
-  }}
-  className="rounded-md bg-white/90 p-2 text-red-500 shadow hover:bg-gray-100"
->
-  <FaTrash />
-</button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setEditingId(ws.id);
-                      setEditingName(ws.name);
-                    }}
-                    className="rounded-xl bg-slate-800 px-3 text-blue-400 hover:bg-slate-700 cursor-pointer"
-                  >
-                    <FaEdit />
-                  </button>
-                )}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setDeleteTarget(ws);
+    }}
+    className="rounded-md bg-white p-2 text-red-500 shadow hover:bg-red-50 cursor-pointer"
+  >
+    <FaTrash />
+  </button>
 
-                <button
-                  onClick={() => setDeleteTarget(ws)}
-                  className="rounded-xl bg-slate-800 px-3 text-red-400 hover:bg-slate-700 cursor-pointer"
-                >
-                  <FaTrash />
-                </button>
-
-              </div>
+</div>
             </div>
             </div>
           ))}
@@ -213,12 +221,12 @@ const filteredWorkspaces = workspaces.filter((workspace) =>
           {/* CREATE WORKSPACE CARD */}
           <div
             onClick={() => setShowCreateModal(true)}
-            className="cursor-pointer rounded-2xl border-2 border-dashed border-slate-700 bg-slate-400 p-6 hover:border-blue-500 hover:bg-slate-500 transition flex flex-col items-center justify-center min-h-[190px]"
+            className="cursor-pointer rounded-2xl border-2  border-slate-700 bg-slate-200 p-6 hover:border-blue-500 hover:bg-slate-300 transition flex flex-col items-center justify-center min-h-[190px]"
           >
             {/* <div className="text-5xl text-slate-500">+</div> */}
 
             <p className="mt-4 text-lg font-semibold">
-              Create Workspace
+            Create Workspace
             </p>
           </div>
         </div>
@@ -228,19 +236,18 @@ const filteredWorkspaces = workspaces.filter((workspace) =>
 
       {/* CREATE WORKSPACE MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
 
-          <div className="w-[90%] max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6">
+          <div className="w-[90%] max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
 
-            <h2 className="text-xl font-semibold text-white">
+            <h2 className="text-xl font-semibold text-slate-800">
               Create Workspace
             </h2>
-
             <input
               value={workspaceName}
               onChange={(e) => setWorkspaceName(e.target.value)}
               placeholder="Workspace name..."
-              className="mt-5 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 outline-none focus:border-blue-500"
+              className="mt-5 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:border-sky-500"
             />
 
             <div className="mt-6 flex justify-end gap-3">
@@ -250,14 +257,14 @@ const filteredWorkspaces = workspaces.filter((workspace) =>
                   setWorkspaceName("");
                   setShowCreateModal(false);
                 }}
-                className="rounded-lg bg-slate-700 px-4 py-2"
+               className="rounded-lg bg-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-300 cursor-pointer"
               >
                 Cancel
               </button>
 
               <button
                 onClick={handleCreate}
-                className="rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-500"
+                className="rounded-lg bg-sky-600 px-4 py-2 text-white hover:bg-sky-700 cursor-pointer"
               >
                 Create
               </button>
@@ -272,40 +279,40 @@ const filteredWorkspaces = workspaces.filter((workspace) =>
 
       {/* DELETE MODAL */}
       {deleteTarget && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60">
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
 
-          <div className="w-[350px] rounded-xl border border-slate-700 bg-slate-900 p-6">
+    <div className="w-[350px] rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
 
-            <h2 className="text-lg font-semibold text-red-500">
-              Delete Workspace?
-            </h2>
+      <h2 className="text-lg font-semibold text-red-600">
+        Delete Workspace?
+      </h2>
 
-            <p className="mt-2 text-sm text-slate-400">
-              This action cannot be undone.
-            </p>
+      <p className="mt-2 text-sm text-slate-500">
+        This action cannot be undone.
+      </p>
 
-            <div className="mt-5 flex gap-3">
+      <div className="mt-5 flex gap-3">
 
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 rounded-lg bg-slate-700 py-2"
-              >
-                Cancel
-              </button>
+        <button
+          onClick={() => setDeleteTarget(null)}
+          className="flex-1 rounded-lg bg-slate-200 py-2 text-slate-700 hover:bg-slate-300 cursor-pointer"
+        >
+          Cancel
+        </button>
 
-              <button
-                onClick={handleDelete}
-                className="flex-1 rounded-lg bg-red-600 py-2"
-              >
-                Delete
-              </button>
+        <button
+          onClick={handleDelete}
+          className="flex-1 rounded-lg bg-red-600 py-2 text-white hover:bg-red-700 cursor-pointer"
+        >
+          Delete
+        </button>
 
-            </div>
+      </div>
 
-          </div>
+    </div>
 
-        </div>
-      )}
+  </div>
+)}
 
     </div>
   );

@@ -21,6 +21,7 @@ import {
 } from "@dnd-kit/sortable";
 
 import Navbar from "./Navbar";
+import BottomBar from "./BottomBar";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
@@ -123,22 +124,22 @@ const Board = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-600 flex flex-col">
-      {/* HEADER */}
-
+<div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950">
       <Navbar
         search={search}
         setSearch={setSearch}
         placeholder="Search Cards..."
+        className="bg-slate-800/80 border-white/10 backdrop-blur-md text-white"
+        dark
       />
-      <div className="flex items-center px-4 py-2 bg-slate-100 backdrop-blur-sm border-b border-white/10 text-slate-600">
+      <div className="flex items-center px-4 py-2 bg-slate-700 backdrop-blur-sm border-b border-white/10 text-slate-100">
         {/* Left */}
         <div className="flex items-center gap-3 shrink-0">
           <h1 className="text-lg  font-semibold whitespace-nowrap">
             {board.name}
           </h1>
 
-          <button className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-white/10 transition cursor-pointer">
+          <button className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-white/10 transition cursor-pointer text-slate-100">
             <Eye size={16} />
           </button>
         </div>
@@ -190,7 +191,7 @@ const Board = () => {
           strategy={horizontalListSortingStrategy}
         >
           <div className="flex-1 overflow-x-auto px-3 sm:px-6 py-4 sm:py-6">
-            <div className="flex min-w-max gap-3 sm:gap-6">
+            <div className="flex min-w-max items-start gap-3 sm:gap-6">
              {filteredLists.map((list) => (
   <List key={list.id} list={list} />
 ))}
@@ -198,19 +199,19 @@ const Board = () => {
               {/* ADD LIST */}
 
               {isAddingList ? (
-                <div className="w-[280px] sm:w-72 flex-shrink-0 rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <div className="w-[272px] flex-shrink-0 rounded-xl bg-white/20 backdrop-blur-md p-3 shadow-sm">
                   <input
                     type="text"
                     value={listTitle}
                     onChange={(e) => setListTitle(e.target.value)}
                     placeholder="Enter list title..."
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 outline-none focus:border-blue-500"
+                    className="w-full rounded-lg border border-white/30 bg-white p-2 text-slate-800 outline-none focus:border-sky-500"
                   />
 
                   <div className="mt-3 flex gap-2">
                     <button
                       onClick={handleAddList}
-                      className="flex-1 cursor-pointer rounded-lg bg-blue-600 py-2 hover:bg-blue-500"
+                      className="flex-1 cursor-pointer rounded-lg bg-blue-600 py-2 text-white hover:bg-blue-700"
                     >
                       Add
                     </button>
@@ -220,7 +221,7 @@ const Board = () => {
                         setIsAddingList(false);
                         setListTitle("");
                       }}
-                      className="flex-1 cursor-pointer rounded-lg bg-slate-800 py-2 hover:bg-slate-700"
+                      className="flex-1 cursor-pointer rounded-lg bg-slate-300 py-2 text-slate-700 hover:bg-slate-400"
                     >
                       Cancel
                     </button>
@@ -229,7 +230,7 @@ const Board = () => {
               ) : (
                 <button
                   onClick={() => setIsAddingList(true)}
-                  className="w-[280px] sm:w-72 flex-shrink-0 rounded-xl border border-dashed border-slate-700 bg-slate-900 p-4 text-left transition hover:bg-slate-800 cursor-pointer"
+                  className="w-[272px] flex-shrink-0 rounded-xl bg-white/20 backdrop-blur-sm p-3 text-left text-sm font-medium text-white transition hover:bg-white/30 cursor-pointer"
                 >
                   + Add list
                 </button>
@@ -238,6 +239,7 @@ const Board = () => {
           </div>
         </SortableContext>
       </DndContext>
+      <BottomBar />
     </div>
   );
 };

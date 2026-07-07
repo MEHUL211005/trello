@@ -28,7 +28,7 @@ const Sidebar = () => {
       {/* TOP MENU */}
       <div className="space-y-2">
         <button
-          className={sidebarBtn}
+          className={sidebarBtn} 
           onClick={() => navigate("/dashboard")}
         >
           <Home size={18} />
