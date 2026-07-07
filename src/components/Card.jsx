@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { FaEdit } from "react-icons/fa";
 
-function Card({ card, onDelete, onEdit }) {
+function Card({ card, onDelete, onEdit, onOpen }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(card.title);
   const [editedImage, setEditedImage] = useState(card.image || "");
@@ -37,38 +37,42 @@ function Card({ card, onDelete, onEdit }) {
       <div
         ref={setNodeRef}
         style={style}
-        className="group rounded-lg bg-white p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+        className="relative group overflow-hidden rounded-lg bg-white p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
       >
         {/* EDIT MODE */}
         {isEditing ? (
           <div className="space-y-3">
             <textarea
-              value={editedTitle}
-              onChange={(e) => setEditedTitle(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-slate-300 bg-white text-slate-800"
-            />
+  value={editedTitle}
+  onChange={(e) => setEditedTitle(e.target.value)}
+  onPaste={(e) => {
+    const items = e.clipboardData.items;
 
-            <label className="flex cursor-pointer items-center justify-center rounded-lg border border-slate-600 bg-white p-2 text-sm text-slate-800 hover:bg-slate-600">
-Choose Image
-  <input
-    type="file"
-    accept="image/*"
-    className="hidden"
-    onChange={(e) => {
-      const file = e.target.files[0];
-      if (file) {
-        setEditedImage(URL.createObjectURL(file));
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+
+        const file = item.getAsFile();
+
+        if (!file) return;
+
+        const imageUrl = URL.createObjectURL(file);
+
+        setEditedImage(imageUrl);
+
+        return;
       }
-    }}
-  />
-</label>
+    }
+  }}
+  rows={3}
+  className="w-full rounded-lg border border-slate-300 bg-white text-slate-800"
+/>
 
             {editedImage && (
               <img
                 src={editedImage}
                 alt="preview"
-                className="h-32 w-full rounded-lg object-cover"
+                className="h-32 w-full rounded-lg object-contain"
               />
             )}
 
@@ -104,15 +108,19 @@ Choose Image
             )}
 
             {/* CONTENT */}
-            <div className="flex items-start justify-between gap-2 ">
-              <p
-                {...listeners}
-                {...attributes}
-               className="flex-1 cursor-grab text-[14px] leading-5 font-medium text-slate-800"
-                onClick={() => setIsEditing(true)}
-              >
-                {card.title}
-              </p>
+            <div className="flex min-w-0 items-start justify-between gap-2">
+ <div
+  onClick={() => onOpen(card)}
+  {...listeners}
+  {...attributes}
+  className="min-w-0 flex-1 cursor-grab"
+>
+  <p
+    className="break-words whitespace-normal text-[14px] font-medium leading-5 text-slate-800"
+  >
+    {card.title}
+  </p>
+</div>
 
               <div className="flex gap-1 opacity-0 transition-all duration-150 group-hover:opacity-100">
                 <button
@@ -149,14 +157,14 @@ Choose Image
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-600"
+                className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-600 cursor-pointer"
               >
                 Cancel
               </button>
 
               <button
                 onClick={handleDelete}
-                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-500"
+                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-500 cursor-pointer"
               >
                 Delete
               </button>

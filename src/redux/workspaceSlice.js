@@ -4,7 +4,7 @@ const initialState = {
   users: {},
 };
 
-// ✅ SAFE getter (NO mutation side effects outside reducers)
+// SAFE getter (NO mutation side effects outside reducers)
 const getUser = (state, userId) => {
   if (!state.users[userId]) {
     state.users[userId] = { workspaces: [] };

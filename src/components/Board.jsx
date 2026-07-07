@@ -14,7 +14,12 @@ import {
   Share2,
   MoreHorizontal,
 } from "lucide-react";
-import { DndContext } from "@dnd-kit/core";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -27,6 +32,13 @@ const Board = () => {
   const { workspaceId, boardId } = useParams();
 
   const dispatch = useDispatch();
+  const sensors = useSensors(
+  useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 5,
+    },
+  })
+);
   const [search, setSearch] = useState("");
   const { user } = useSelector((state) => state.auth);
 
@@ -185,7 +197,10 @@ const Board = () => {
       </div>
       {/* BOARD */}
 
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext
+  sensors={sensors}
+  onDragEnd={handleDragEnd}
+>
         <SortableContext
           items={listIds}
           strategy={horizontalListSortingStrategy}
