@@ -2,17 +2,20 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { login } from "../redux/authSlice";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  
+
   const { error, user } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -26,7 +29,6 @@ const Login = () => {
     dispatch(login(formData));
   };
 
-  // ✅ correct login detection
   useEffect(() => {
     if (user) {
       navigate("/dashboard");
@@ -68,6 +70,7 @@ const Login = () => {
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
 
+              {/* EMAIL */}
               <input
                 type="email"
                 name="email"
@@ -77,15 +80,27 @@ const Login = () => {
                 className="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
               />
 
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Password"
-                className="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
-              />
+              {/* PASSWORD WITH EYE ICON */}
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Password"
+                  className="w-full rounded-xl border px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-blue-400"
+                />
 
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+
+              {/* LOGIN BUTTON */}
               <button
                 type="submit"
                 className="w-full cursor-pointer rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700"

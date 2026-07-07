@@ -51,7 +51,7 @@ const authSlice = createSlice({
 
       state.users.push(newUser);
 
-      // ❌ IMPORTANT: NO AUTO LOGIN
+      //IMPORTANT: NO AUTO LOGIN
       state.user = null;
     },
 

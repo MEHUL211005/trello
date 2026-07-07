@@ -3,32 +3,40 @@ import List from "./List";
 import { useSelector, useDispatch } from "react-redux";
 import { addList, moveCard, moveList } from "../redux/workspaceSlice";
 import { useParams } from "react-router-dom";
-
+import {
+  Eye,
+  UserRound,
+  Plug,
+  Bot,
+  Filter,
+  Star,
+  Lock,
+  Share2,
+  MoreHorizontal,
+} from "lucide-react";
 import { DndContext } from "@dnd-kit/core";
 import {
   SortableContext,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import ProfileMenu from "./ProfileMenu";
+
+import Navbar from "./Navbar";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
 
   const dispatch = useDispatch();
-
+  const [search, setSearch] = useState("");
   const { user } = useSelector((state) => state.auth);
 
   const board = useSelector((state) => {
     if (!user) return null;
 
-    const workspace =
-      state.workspace.users?.[user.id]?.workspaces?.find(
-        (w) => w.id === workspaceId
-      );
-
-    return (
-      workspace?.boards?.find((b) => b.id === boardId) || null
+    const workspace = state.workspace.users?.[user.id]?.workspaces?.find(
+      (w) => w.id === workspaceId,
     );
+
+    return workspace?.boards?.find((b) => b.id === boardId) || null;
   });
 
   const lists = board?.lists || [];
@@ -46,6 +54,17 @@ const Board = () => {
 
   const listIds = lists.map((list) => list.id);
 
+  // ================= FILTERED LISTS =================
+
+  const filteredLists = lists
+    .map((list) => ({
+      ...list,
+      cards: list.cards.filter((card) =>
+        card.title.toLowerCase().includes(search.toLowerCase()),
+      ),
+    }))
+    .filter((list) => search.trim() === "" || list.cards.length > 0);
+
   // ================= ADD LIST =================
 
   const handleAddList = () => {
@@ -59,7 +78,7 @@ const Board = () => {
         list: {
           title: listTitle,
         },
-      })
+      }),
     );
 
     setListTitle("");
@@ -74,7 +93,7 @@ const Board = () => {
     if (!over) return;
 
     const activeList = lists.find((list) =>
-      list.cards.some((card) => card.id === active.id)
+      list.cards.some((card) => card.id === active.id),
     );
 
     // CARD MOVE
@@ -86,7 +105,7 @@ const Board = () => {
           boardId,
           cardId: active.id,
           newListId: over.id,
-        })
+        }),
       );
       return;
     }
@@ -99,79 +118,99 @@ const Board = () => {
         boardId,
         activeId: active.id,
         overId: over.id,
-      })
+      }),
     );
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-
+    <div className="min-h-screen bg-white text-slate-600 flex flex-col">
       {/* HEADER */}
 
-     <div className="border-b border-slate-800 bg-slate-900/60 backdrop-blur">
+      <Navbar
+        search={search}
+        setSearch={setSearch}
+        placeholder="Search Cards..."
+      />
+      <div className="flex items-center px-4 py-2 bg-slate-100 backdrop-blur-sm border-b border-white/10 text-slate-600">
+        {/* Left */}
+        <div className="flex items-center gap-3 shrink-0">
+          <h1 className="text-lg  font-semibold whitespace-nowrap">
+            {board.name}
+          </h1>
 
-  <div className="px-4 sm:px-6 py-4 flex items-center justify-between">
+          <button className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-white/10 transition cursor-pointer">
+            <Eye size={16} />
+          </button>
+        </div>
 
-    {/* LEFT SIDE */}
-    <div>
-      <h1 className="text-xl sm:text-2xl font-bold">
-        {board.name}
-      </h1>
+        {/* Spacer */}
+        <div className="flex-1" />
 
-      <p className="text-sm text-slate-400">
-        Drag & Drop your tasks easily
-      </p>
-    </div>
+        {/* Right */}
+        <div className="flex items-center gap-1">
+          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
+            <UserRound size={16} />
+          </button>
 
-    {/* RIGHT SIDE */}
-    <div>
-      <ProfileMenu />
-    </div>
+          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
+            <Plug size={16} />
+          </button>
 
-  </div>
+          <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
+            <Bot size={16} />
+          </button>
 
-</div>
+          <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
+            <Filter size={16} />
+          </button>
 
+          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
+            <Star size={16} />
+          </button>
+
+          <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
+            <Lock size={16} />
+          </button>
+
+          <button className="flex items-center gap-1 bg-white text-slate-900 rounded-md px-3 py-1.5 hover:bg-slate-200 cursor-pointer">
+            <Share2 size={15} />
+            <span>Share</span>
+          </button>
+
+          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
+            <MoreHorizontal size={18} />
+          </button>
+        </div>
+      </div>
       {/* BOARD */}
 
       <DndContext onDragEnd={handleDragEnd}>
-
         <SortableContext
           items={listIds}
           strategy={horizontalListSortingStrategy}
         >
-
-          <div className="flex-1 overflow-x-auto px-4 sm:px-6 py-6">
-
-            <div className="flex gap-4 sm:gap-6 min-w-max">
-
-              {lists.map((list) => (
-                <List
-                  key={list.id}
-                  list={list}
-                />
-              ))}
+          <div className="flex-1 overflow-x-auto px-3 sm:px-6 py-4 sm:py-6">
+            <div className="flex min-w-max gap-3 sm:gap-6">
+             {filteredLists.map((list) => (
+  <List key={list.id} list={list} />
+))}
 
               {/* ADD LIST */}
 
               {isAddingList ? (
-                <div className="w-72 flex-shrink-0 rounded-xl bg-slate-900 border border-slate-800 p-4">
-
+                <div className="w-[280px] sm:w-72 flex-shrink-0 rounded-xl border border-slate-800 bg-slate-900 p-4">
                   <input
                     type="text"
                     value={listTitle}
-                    onChange={(e) =>
-                      setListTitle(e.target.value)
-                    }
+                    onChange={(e) => setListTitle(e.target.value)}
                     placeholder="Enter list title..."
-                    className="w-full rounded-lg bg-slate-800 border border-slate-700 p-2 outline-none focus:border-blue-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 outline-none focus:border-blue-500"
                   />
 
-                  <div className="flex gap-2 mt-3">
-
+                  <div className="mt-3 flex gap-2">
                     <button
                       onClick={handleAddList}
-                      className="cursor-pointer flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-lg"
+                      className="flex-1 cursor-pointer rounded-lg bg-blue-600 py-2 hover:bg-blue-500"
                     >
                       Add
                     </button>
@@ -181,31 +220,24 @@ const Board = () => {
                         setIsAddingList(false);
                         setListTitle("");
                       }}
-                      className="cursor-pointer flex-1 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg"
+                      className="flex-1 cursor-pointer rounded-lg bg-slate-800 py-2 hover:bg-slate-700"
                     >
                       Cancel
                     </button>
-
                   </div>
-
                 </div>
               ) : (
                 <button
                   onClick={() => setIsAddingList(true)}
-                  className="w-72 flex-shrink-0 rounded-xl border border-dashed border-slate-700 bg-slate-900 hover:bg-slate-800 transition p-4 text-left cursor-pointer"
+                  className="w-[280px] sm:w-72 flex-shrink-0 rounded-xl border border-dashed border-slate-700 bg-slate-900 p-4 text-left transition hover:bg-slate-800 cursor-pointer"
                 >
-                  + Add another list
+                  + Add list
                 </button>
               )}
-
             </div>
-
           </div>
-
         </SortableContext>
-
       </DndContext>
-
     </div>
   );
 };

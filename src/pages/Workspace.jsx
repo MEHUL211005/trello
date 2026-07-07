@@ -9,11 +9,21 @@ import {
 
 import { FaEdit, FaTrash, FaFolderOpen } from "react-icons/fa";
 import ProfileMenu from "../components/ProfileMenu";
-
+import Navbar from "../components/Navbar";
+import Sidebar from "../components/Sidebar";
+import { FaRegStar } from "react-icons/fa";
+const covers = [
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800",
+  "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=800",
+  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800",
+  "https://images.unsplash.com/photo-1511300636408-a63a89df3482?w=800",
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800",
+];
 const Workspace = () => {
   const { workspaceId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [search, setSearch] = useState("");
 
   const { user } = useSelector((state) => state.auth);
 
@@ -28,6 +38,7 @@ const Workspace = () => {
   });
 
   const [boardName, setBoardName] = useState("");
+const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [editBoardId, setEditBoardId] = useState(null);
   const [editBoardName, setEditBoardName] = useState("");
@@ -64,6 +75,7 @@ const Workspace = () => {
     );
 
     setBoardName("");
+    setShowCreateModal(false);
   };
 
   // ---------------- EDIT BOARD ----------------
@@ -95,147 +107,211 @@ const Workspace = () => {
 
     setDeleteBoardId(null);
   };
-
+  const filteredBoards = workspace.boards.filter((board)=>
+  board.name.toLowerCase().includes(search.toLowerCase()))
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-white text-slate-600">
 
       {/* HEADER */}
-      <div className="border-b border-slate-800 bg-slate-900/70 backdrop-blur">
-  
-  <div className="mx-auto max-w-7xl px-6 py-6 flex items-center justify-between">
+     <Navbar
+  search={search}
+  setSearch={setSearch}
+  placeholder="Search boards..."
+/>
+<div className="flex">
 
-    {/* LEFT SIDE */}
-    <div>
-      <h1 className="text-3xl font-bold">
-        {workspace.name}
-      </h1>
+  <Sidebar />
 
-      <p className="text-sm text-slate-400 mt-1">
-        Manage all boards inside this workspace
-      </p>
-    </div>
-
-    {/* RIGHT SIDE */}
-    <div>
-      <ProfileMenu />
-    </div>
-
-  </div>
-
-</div>
+  <main className="flex-1 overflow-auto pt-8">
 
       {/* MAIN */}
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mb-10 ml-8 flex items-center gap-5">
 
-        {/* CREATE BOARD */}
-        <div className="flex gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+  {/* Workspace Avatar */}
+  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-blue-600 text-2xl font-bold text-white">
+    {workspace.name.charAt(0).toUpperCase()}
+  </div>
 
-          <input
-            value={boardName}
-            onChange={(e) => setBoardName(e.target.value)}
-            placeholder="Enter board name..."
-            className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 outline-none focus:border-blue-500"
-          />
+  {/* Workspace Details */}
+  <div>
+    <h1 className="text-3xl font-bold text-slate-500">
+      {workspace.name}
+    </h1>
 
-          <button
-            onClick={handleCreateBoard}
-            className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-medium cursor-pointer"
-          >
-            + Create
-          </button>
-        </div>
+    <div className="mt-1 flex items-center gap-2">
+      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
+        Private Workspace
+      </span>
 
+      <span className="text-sm text-slate-500">
+        {workspace.boards.length} Boards
+      </span>
+    </div>
+  </div>
+</div>
+<div className="mt-20 border-t border-slate-200"></div>
+      <div className="mx-auto max-w-7xl px-6 ">
+    <div className="pt-4 pb-6 flex items-center gap-3">
+  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+    <FaFolderOpen className="text-lg text-blue-600" />
+  </div>
+
+  <div>
+    <h1 className="text-2xl font-semibold text-slate-400">
+      Your Boards
+    </h1>
+
+    <p className="text-sm text-slate-400">
+      {workspace.boards.length} boards
+    </p>
+  </div>
+</div>
+        
         {/* BOARDS */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
-          {workspace?.boards?.length > 0 ? (
-            workspace.boards.map((board) => (
-              <div
-                key={board.id}
-                className="rounded-2xl border border-slate-800 bg-slate-900 p-5 hover:border-blue-500 transition"
-              >
+  {/* BOARD CARDS */}
+  {filteredBoards.map((board,index) => (
+    <div
+  key={board.id}
+  onClick={() =>
+    navigate(`/workspace/${workspaceId}/board/${board.id}`)
+  }
+  className="group relative overflow-hidden rounded-xl bg-white border border-gray-200 hover:shadow-lg transition-all duration-200 cursor-pointer"
+>
+     <img
+  src={covers[index % covers.length]}
+  alt={board.name}
+  className="h-24 w-full object-cover"
+/>
+<div className="p-3">
+      {editBoardId === board.id ? (
+        <div>
+          <input
+            value={editBoardName}
+            onChange={(e) => setEditBoardName(e.target.value)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2"
+          />
 
-                {/* TITLE / EDIT */}
-                {editBoardId === board.id ? (
-                  <div>
-                    <input
-                      value={editBoardName}
-                      onChange={(e) => setEditBoardName(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2"
-                    />
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={handleEditBoard}
+              className="flex-1 rounded-lg bg-blue-600 py-2"
+            >
+              Save
+            </button>
 
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={handleEditBoard}
-                        className="flex-1 bg-blue-600 py-2 rounded-lg cursor-pointer"
-                      >
-                        Save
-                      </button>
-
-                      <button
-                        onClick={() => setEditBoardId(null)}
-                        className="flex-1 bg-slate-700 py-2 rounded-lg cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <h2 className="text-lg font-semibold">
-                    {board.name}
-                  </h2>
-                )}
-
-                <p className="text-sm text-slate-400 mt-2">
-                  {board.lists?.length || 0} Lists
-                </p>
-
-                {/* ACTIONS (same style as Dashboard) */}
-                <div className="mt-5 flex gap-2">
-
-                  {/* OPEN */}
-                  <button
-                    onClick={() =>
-                      navigate(`/workspace/${workspaceId}/board/${board.id}`)
-                    }
-                    className="flex-1 flex items-center justify-center gap-2 border border-slate-700 bg-slate-800 py-2 rounded-xl hover:bg-blue-600 cursor-pointer"
-                  >
-                    <FaFolderOpen />
-                    Open
-                  </button>
-
-                  {/* EDIT */}
-                  <button
-                    onClick={() => {
-                      setEditBoardId(board.id);
-                      setEditBoardName(board.name);
-                    }}
-                    className="px-3 bg-slate-800 rounded-xl text-blue-400 hover:bg-slate-700 cursor-pointer"
-                  >
-                    <FaEdit />
-                  </button>
-
-                  {/* DELETE */}
-                  <button
-                    onClick={() => setDeleteBoardId(board.id)}
-                    className="px-3 bg-slate-800 rounded-xl text-red-400 hover:bg-slate-700 cursor-pointer"
-                  >
-                    <FaTrash />
-                  </button>
-
-                </div>
-
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center p-10 border border-dashed border-slate-700 rounded-2xl">
-              No Boards Yet
-            </div>
-          )}
-
+            <button
+              onClick={() => setEditBoardId(null)}
+              className="flex-1 rounded-lg bg-slate-700 py-2"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
+      ) : (
+        <h2 className="text-lg font-semibold">
+          {board.name}
+        </h2>
+      )}
+
+     <p className="mt-1 text-xs text-gray-500">
+        {board.lists?.length || 0} Lists
+      </p>
+
+     <div className="absolute right-3 top-3 hidden gap-2 group-hover:flex">
+<button
+  onClick={(e) => e.stopPropagation()}
+  className="rounded-md bg-white/90 p-2 text-gray-700 shadow hover:bg-gray-100 cursor-pointer"
+>
+  <FaRegStar size={14} />
+</button>
+      
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditBoardId(board.id);
+            setEditBoardName(board.name);
+          }}
+          className="rounded-md bg-white/90 p-2 text-gray-700 shadow hover:bg-gray-100 cursor-pointer"
+        >
+          <FaEdit />
+        </button>
+
+        <button
+          onClick={(e) => {
+  e.stopPropagation();
+  setDeleteBoardId(board.id);
+}}
+          className="rounded-md bg-white/90 p-2 text-red-500 shadow hover:bg-gray-100 cursor-pointer"
+        >
+          <FaTrash />
+        </button>
+
       </div>
 
+    </div>
+    </div>
+  ))}
+
+  {/* CREATE BOARD CARD (LAST) */}
+  <div
+    onClick={() => setShowCreateModal(true)}
+    className="flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2  border-slate-700 bg-slate-300 transition hover:border-blue-200 hover:bg-slate-400"
+  >
+    {/* <div className="text-5xl text-slate-500">+</div> */}
+
+    <p className="mt-4 text-lg font-semibold">
+      Create new Board
+    </p>
+  </div>
+
+</div>
+</div>
+</main>
+</div>
+{showCreateModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+
+    <div className="w-[90%] max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6">
+
+      <h2 className="text-[15px] font-semibold text-gray-800">
+        Create Board
+      </h2>
+
+      <input
+        value={boardName}
+        onChange={(e) => setBoardName(e.target.value)}
+        placeholder="Board name..."
+        className="mt-5 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 outline-none focus:border-blue-500"
+      />
+
+      <div className="mt-6 flex justify-end gap-3">
+
+        <button
+          onClick={() => {
+            setShowCreateModal(false);
+            setBoardName("");
+          }}
+          className="rounded-lg bg-slate-700 px-4 py-2 cursor-pointer"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handleCreateBoard}
+          className="rounded-lg bg-blue-600 px-4 py-2 hover:bg-blue-500 cursor-pointer"
+        >
+          Create
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
       {/* DELETE MODAL */}
       {deleteBoardId && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center">

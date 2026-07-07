@@ -65,7 +65,7 @@ const ProfileMenu = () => {
               setShowConfirm(true);
               setOpen(false);
             }}
-            className="w-full text-left px-3 py-2 text-red-400 hover:bg-slate-800 transition"
+            className="w-full text-left px-3 py-2 text-red-400 hover:bg-slate-800 transition "
           >
             Logout
           </button>
@@ -75,41 +75,39 @@ const ProfileMenu = () => {
 
       {/* ---------------- CONFIRM MODAL ---------------- */}
       {showConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-[9999]">
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
 
-          <div className="w-[90%] max-w-sm rounded-xl bg-slate-900 border border-slate-700 p-6 shadow-2xl">
+    <div className="w-[90%] max-w-sm rounded-xl bg-slate-900 border border-slate-700 p-6 shadow-2xl">
 
-            <h2 className="text-xl font-semibold text-white">
-              Logout
-            </h2>
+     
+      <h2 className="text-xl font-semibold text-white">
+        LOG OUT
+      </h2>
+      <p className="mt-2 text-sm text-slate-400">
+        Are you sure you want to logout from your account?
+      </p>
 
-            <p className="mt-2 text-sm text-slate-400">
-              Are you sure you want to logout from your account?
-            </p>
+      <div className="mt-6 flex justify-end gap-3">
 
-            {/* BUTTONS */}
-            <div className="mt-6 flex justify-end gap-3">
+        <button
+          onClick={() => setShowConfirm(false)}
+          className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white cursor-pointer"
+        >
+          Cancel
+        </button>
 
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white"
-              >
-                Cancel
-              </button>
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white cursor-pointer"
+        >
+          Logout
+        </button>
 
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white"
-              >
-                Logout
-              </button>
+      </div>
+    </div>
 
-            </div>
-          </div>
-
-        </div>
-      )}
-
+  </div>
+)}
     </div>
   );
 };
