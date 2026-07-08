@@ -1,35 +1,54 @@
-import React from 'react'
+import { useEffect, useState } from "react";
+import ModalHeader from "./card/ModalHeader";
+import ModalLeft from "./card/ModalLeft";
+import ModalRight from "./card/ModalRight";
 
-const CardModal = ({card,onClose}) => {
-return (
+function CardModal({ card, list, cardContext, onClose }) {
+  const [title, setTitle] = useState(card.title);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={onClose}
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-6"
     >
-
       <div
-        className="w-[850px] rounded-xl bg-white p-6"
-        onClick={(e)=>e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        className="flex h-[92vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-xl bg-[#F1F2F4] shadow-2xl"
       >
+        <ModalHeader
+          card={card}
+          list={list}
+          title={title}
+          setTitle={setTitle}
+          onClose={onClose}
+        />
 
-        <div className="flex justify-between">
-          <h2 className="text-xl font-semibold">
-            {card.title}
-          </h2>
+        <div className="flex flex-1 overflow-hidden">
+          <ModalLeft
+            card={card}
+            cardContext={cardContext}
+            title={title}
+            setTitle={setTitle}
+          />
 
-          <button onClick={onClose}>
-            ✕
-          </button>
+          <ModalRight card={card} />
         </div>
-
-
-        <div className="mt-5">
-          Content will come here
-        </div>
-
-
       </div>
-
     </div>
   );
 }

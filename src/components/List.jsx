@@ -23,7 +23,7 @@ function List({ list }) {
 
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const [selectedCard,setSelectedCard] = useState(null);
+  const [selectedCardId,setSelectedCardId] = useState(null);
   const { setNodeRef: setDropRef } = useDroppable({
     id: list.id,
   });
@@ -114,7 +114,9 @@ function List({ list }) {
       })
     );
   };
-
+const selectedCard = list.cards.find(
+  (card) => card.id === selectedCardId
+);
   return (
     <>
       <div
@@ -176,7 +178,7 @@ className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col round
         card={card}
         onDelete={handleDeleteCard}
         onEdit={handleEditCard}
-         onOpen={setSelectedCard}
+          onOpen={(card) => setSelectedCardId(card.id)}
       />
     ))}
   </div>
@@ -307,9 +309,16 @@ className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col round
       )}
       {selectedCard && (
   <CardModal
-    card={selectedCard}
-    onClose={() => setSelectedCard(null)}
-  />
+  card={selectedCard}
+  list={list}
+  cardContext={{
+    userId: user.id,
+    workspaceId,
+    boardId,
+    listId: list.id,
+  }}
+  onClose={() => setSelectedCardId(null)}
+/>
 )}
     </>
   );

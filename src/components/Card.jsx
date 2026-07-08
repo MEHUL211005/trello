@@ -3,6 +3,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { FaEdit } from "react-icons/fa";
 
 function Card({ card, onDelete, onEdit, onOpen }) {
+  //  console.log("CARD DATA:", card);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(card.title);
   const [editedImage, setEditedImage] = useState(card.image || "");
@@ -106,6 +107,20 @@ function Card({ card, onDelete, onEdit, onOpen }) {
                className="mb-2 h-28 w-full rounded-lg object-cover"
               />
             )}
+{/* LABELS */}
+{card.labels?.length > 0 && (
+  <div className="mb-2 flex flex-wrap gap-1">
+    {card.labels.map((label) => (
+      <div
+        key={label.id}
+        className="h-3 w-16 rounded-sm"
+        style={{
+          backgroundColor: label.color,
+        }}
+      />
+    ))}
+  </div>
+)}
 
             {/* CONTENT */}
             <div className="flex min-w-0 items-start justify-between gap-2">
@@ -113,14 +128,42 @@ function Card({ card, onDelete, onEdit, onOpen }) {
   onClick={() => onOpen(card)}
   {...listeners}
   {...attributes}
-  className="min-w-0 flex-1 cursor-grab"
+  className="min-w-0 flex-1 w-full cursor-grab"
 >
-  <p
-    className="break-words whitespace-normal text-[14px] font-medium leading-5 text-slate-800"
-  >
+  <p className="break-words whitespace-normal text-[14px] font-medium leading-5 text-slate-800">
     {card.title}
   </p>
+  <div className="mt-2 flex items-center justify-between">
+    {/* Due Date */}
+    {card.dueDate ? (
+      <div className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
+        📅{" "}
+        {new Date(card.dueDate).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+        })}
+      </div>
+    ) : (
+      <div />
+    )}
+{/* Members */}
+    {card.members?.length > 0 && (
+      <div className="ml-auto flex">
+        {card.members.map((member, index) => (
+          <div
+            key={member.id}
+            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-[10px] font-semibold text-white ${
+              index !== 0 ? "-ml-2" : ""
+            }`}
+          >
+            {member.avatar}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
 </div>
+
 
               <div className="flex gap-1 opacity-0 transition-all duration-150 group-hover:opacity-100">
                 <button
