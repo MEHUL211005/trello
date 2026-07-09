@@ -1,5 +1,5 @@
 import {
-  Plus,
+  Paperclip,
   Tag,
   Calendar,
   CheckSquare,
@@ -10,6 +10,8 @@ import { useDispatch } from "react-redux";
 import { toggleLabel } from "../../redux/workspaceSlice";
 import DatePicker from "./DatePicker";
 import MembersPopover from "./MembersPopover";
+import ChecklistPopover from "./ChecklistPopover";
+import AttachmentPopover from "./AttachmentPopover";
 
 function ModalActions({
   userId,
@@ -21,6 +23,8 @@ function ModalActions({
 const [showLabels, setShowLabels] = useState(false);
 const [showDates, setShowDates] = useState(false);
 const [showMembers, setShowMembers] = useState(false);
+const [showChecklist, setShowChecklist] = useState(false);
+const [showAttachments, setShowAttachments] = useState(false);
 const availableLabels = [
   {
     id: "red",
@@ -44,10 +48,10 @@ const availableLabels = [
   },
 ];
   const buttons = [
-    {
-      icon: <Plus size={16} />,
-      label: "Add",
-    },
+   {
+  icon: <Paperclip size={16} />,
+  label: "Attachments",
+  },
     {
       icon: <Tag size={16} />,
       label: "Labels",
@@ -77,18 +81,39 @@ const dispatch = useDispatch();
                 setShowLabels((prev) => !prev);
                 setShowDates(false);
                 setShowMembers(false);
+                setShowChecklist(false);
+                setShowAttachments(false);
               }
 
               if (btn.label === "Dates") {
                 setShowDates((prev) => !prev);
                 setShowLabels(false);
                 setShowMembers(false);
+                setShowChecklist(false);
+                setShowAttachments(false);
               }
 
               if (btn.label === "Members") {
                 setShowMembers((prev) => !prev);
                 setShowLabels(false);
                 setShowDates(false);
+                setShowChecklist(false);
+                setShowAttachments(false);
+              }
+              if (btn.label === "Checklist") {
+              setShowChecklist((prev) => !prev);
+
+              setShowLabels(false);
+              setShowDates(false);
+              setShowMembers(false);
+              setShowAttachments(false);
+              }
+              if (btn.label === "Attachments") {
+              setShowAttachments((prev) => !prev);
+              setShowLabels(false);
+              setShowDates(false);
+              setShowMembers(false);
+              setShowChecklist(false);
               }
             }}
             className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-100"
@@ -160,6 +185,33 @@ const dispatch = useDispatch();
               onClose={() => setShowMembers(false)}
             />
           )}
+
+          {/*Checklist*/}
+          {btn.label === "Checklist" && showChecklist && (
+          <ChecklistPopover
+          cardContext={{
+          userId,
+          workspaceId,
+          boardId,
+          listId,
+          cardId,
+          }}
+          onClose={() => setShowChecklist(false)}
+          />
+        )}
+      {/* Attachments */}
+      {btn.label === "Attachments" && showAttachments && (
+  <AttachmentPopover
+    cardContext={{
+      userId,
+      workspaceId,
+      boardId,
+      listId,
+      cardId,
+    }}
+    onClose={() => setShowAttachments(false)}
+  />
+)}
         </div>
       ))}
     </div>

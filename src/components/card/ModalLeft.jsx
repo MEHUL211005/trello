@@ -2,7 +2,7 @@ import ModalActions from "./ModalActions";
 import ModalDescription from "./ModalDescription";
 import Checklist from "./Checklist";
 import ModalAttachments from "./ModalAttachments";
-import Activity from "./Activity";
+// import Activity from "./Activity";
 import ModalLabels from "./ModalLabels";
 import ModalDueDate from "./ModalDueDate";
 
@@ -46,11 +46,23 @@ function ModalLeft({card,title,setTitle, cardContext}) {
 
       <ModalDescription card={card} cardContext={cardContext} />
 
-      <Checklist />
+      <Checklist
+      card={card}
+      cardContext={{
+      ...cardContext,
+      cardId: card.id,
+      }}
+      />
 
-      <ModalAttachments />
+     <ModalAttachments
+      card={card}
+      cardContext={{
+    ...cardContext,
+      cardId: card.id,
+    }}
+    />
 
-      <Activity />
+      {/* <Activity /> */}
     </div>
   );
 }

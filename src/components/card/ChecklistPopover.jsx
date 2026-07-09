@@ -1,7 +1,23 @@
 import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { addChecklist } from "../../redux/workspaceSlice";
 
-function ChecklistPopover() {
+function ChecklistPopover({cardContext, onClose}) {
   const [title, setTitle] = useState("Checklist");
+  const handleAddChecklist = () => {
+  if (!title.trim()) return;
+
+  dispatch(
+    addChecklist({
+      ...cardContext,
+      title,
+    })
+  );
+
+  onClose();
+};
+
+  const dispatch = useDispatch();
 
   return (
     <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
@@ -20,9 +36,10 @@ function ChecklistPopover() {
       />
 
       <button
-        className="mt-4 w-full rounded-md bg-blue-600 py-2 text-sm text-white hover:bg-blue-500"
+      onClick={handleAddChecklist}
+      className="mt-4 w-full rounded-md bg-blue-600 py-2 text-sm text-white hover:bg-blue-500"
       >
-        Add
+      Add
       </button>
     </div>
   );

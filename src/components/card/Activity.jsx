@@ -1,25 +1,51 @@
-import { Clock3 } from "lucide-react";
+import { useState } from "react";
 
-function Activity() {
+function Activity({ card }) {
+  const [showDetails, setShowDetails] = useState(true);
+
   return (
-    <section className="mt-8">
-      <div className="flex items-center gap-3">
-        <Clock3
-          size={20}
-          className="text-slate-600"
-        />
-
-        <h2 className="text-lg font-semibold text-slate-800">
+    <div className="mt-8 border-t border-slate-300 pt-6">
+      <div className="mb-5 flex items-center justify-between">
+        <h3 className="text-lg font-semibold">
           Activity
-        </h2>
+        </h3>
+
+        <button
+          onClick={() => setShowDetails((prev) => !prev)}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          {showDetails ? "Hide details" : "Show details"}
+        </button>
       </div>
 
-      <div className="mt-4 rounded-lg border border-dashed border-slate-300 p-6">
+      {!card.activity?.length ? (
         <p className="text-sm text-slate-500">
-          No activity yet
+          No activity yet.
         </p>
-      </div>
-    </section>
+      ) : (
+        showDetails && (
+          <div className="space-y-4">
+            {card.activity.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-lg bg-white p-3 shadow-sm"
+              >
+                <p className="text-sm">
+                  <span className="font-semibold">
+                    {item.user}
+                  </span>{" "}
+                  {item.action}
+                </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  {new Date(item.createdAt).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </div>
   );
 }
 

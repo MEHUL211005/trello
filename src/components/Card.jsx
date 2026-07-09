@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { FaEdit } from "react-icons/fa";
+import { CheckSquare , Paperclip , MessageSquare } from "lucide-react";
 
 function Card({ card, onDelete, onEdit, onOpen }) {
   //  console.log("CARD DATA:", card);
@@ -32,7 +33,22 @@ function Card({ card, onDelete, onEdit, onOpen }) {
     onDelete(card.id);
     setShowDeleteModal(false);
   };
+const totalChecklistItems =
+  card.checklist?.reduce(
+    (total, checklist) =>
+      total + checklist.items.length,
+    0
+  ) || 0;
 
+const completedChecklistItems =
+  card.checklist?.reduce(
+    (total, checklist) =>
+      total +
+      checklist.items.filter(
+        (item) => item.completed
+      ).length,
+    0
+  ) || 0;
   return (
     <>
       <div
@@ -146,6 +162,29 @@ function Card({ card, onDelete, onEdit, onOpen }) {
     ) : (
       <div />
     )}
+    {totalChecklistItems > 0 && (
+  <div
+    className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${
+      completedChecklistItems === totalChecklistItems
+        ? "bg-green-100 text-green-700"
+        : "bg-slate-100 text-slate-700"
+    }`}
+  >
+    <CheckSquare size={13} /> <span>{completedChecklistItems}/{totalChecklistItems}</span>
+  </div>
+)}
+{card.attachments?.length > 0 && (
+  <div className="flex items-center gap-1 text-xs text-slate-600">
+    <Paperclip size={14} />
+    {card.attachments.length}
+  </div>
+)}
+{card.comments?.length > 0 && (
+  <div className="flex items-center gap-1 text-xs text-slate-600">
+    <MessageSquare size={14} />
+    {card.comments.length}
+  </div>
+)}
 {/* Members */}
     {card.members?.length > 0 && (
       <div className="ml-auto flex">

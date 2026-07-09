@@ -23,8 +23,7 @@ function MembersPopover({ cardContext, onClose }) {
   ];
 
   return (
-    <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
-
+    <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
       <h3 className="mb-3 text-center text-sm font-semibold">
         Members
       </h3>

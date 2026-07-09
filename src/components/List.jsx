@@ -23,6 +23,9 @@ function List({ list }) {
 
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const workspaceState = useSelector(
+  (state) => state.workspace
+);
   const [selectedCardId,setSelectedCardId] = useState(null);
   const { setNodeRef: setDropRef } = useDroppable({
     id: list.id,
@@ -114,9 +117,28 @@ function List({ list }) {
       })
     );
   };
-const selectedCard = list.cards.find(
-  (card) => card.id === selectedCardId
-);
+  // console.log("selectedCardId:", selectedCardId);
+// console.log("list.id (prop):", list.id);
+
+// const reduxList = workspaceState.users[user.id]
+//   ?.workspaces
+//   .find((w) => w.id === workspaceId)
+//   ?.boards.find((b) => b.id === boardId)
+//   ?.lists.find((l) => l.id === list.id);
+
+// console.log("Redux cards:", reduxList?.cards);
+const selectedCard = workspaceState.users[user.id]
+
+  ?.workspaces
+  .find((w) => w.id === workspaceId)
+  ?.boards
+  .find((b) => b.id === boardId)
+  ?.lists
+  .find((l) => l.id === list.id)
+  ?.cards
+  .find((c) => c.id === selectedCardId);
+  // console.log("SELECTED CARD:", selectedCard);
+  
   return (
     <>
       <div
@@ -226,11 +248,11 @@ className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col round
 
       if (!file) return;
 
-      console.log(file); // <-- Check this
+      // console.log(file);
 
       const imageUrl = URL.createObjectURL(file);
 
-      console.log(imageUrl); // <-- Check this
+      // console.log(imageUrl); 
 
       setCardImage(imageUrl);
 
@@ -308,7 +330,7 @@ className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col round
         </div>
       )}
       {selectedCard && (
-  <CardModal
+<CardModal
   card={selectedCard}
   list={list}
   cardContext={{
@@ -316,6 +338,7 @@ className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col round
     workspaceId,
     boardId,
     listId: list.id,
+    cardId: selectedCard.id,
   }}
   onClose={() => setSelectedCardId(null)}
 />

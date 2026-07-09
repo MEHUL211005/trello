@@ -27,7 +27,18 @@ const getCard = (
     ?.lists.find((l) => l.id === listId)
     ?.cards.find((c) => c.id === cardId);
 };
+const addActivity = (card, action, user = "Mehul") => {
+  if (!card.activity) {
+    card.activity = [];
+  }
 
+  card.activity.unshift({
+    id: crypto.randomUUID(),
+    user,
+    action,
+    createdAt: new Date().toISOString(),
+  });
+};
 const workspaceSlice = createSlice({
   name: "workspace",
   initialState,
@@ -101,7 +112,7 @@ const workspaceSlice = createSlice({
       if (board) {
         board.lists.push({
           ...list,
-          id: crypto.randomUUID(), // ✅ FIXED
+          id: crypto.randomUUID(), 
           cards: [],
         });
       }
@@ -187,8 +198,7 @@ const workspaceSlice = createSlice({
       }
     },
 
-    //UPDATE CARD 
-updateCard: (state, action) => {
+  updateCard: (state, action) => {
   const {
     userId,
     workspaceId,
@@ -209,9 +219,31 @@ updateCard: (state, action) => {
 
   if (!card) return;
 
+  // Description
+  if (
+    updates.description !== undefined &&
+    updates.description !== card.description
+  ) {
+    addActivity(card, "updated the description");
+  }
+
+  // Due Date
+  if (updates.dueDate !== undefined) {
+    if (!card.dueDate && updates.dueDate) {
+      addActivity(card, "set the due date");
+    } else if (card.dueDate && !updates.dueDate) {
+      addActivity(card, "removed the due date");
+    } else if (
+      card.dueDate &&
+      updates.dueDate &&
+      card.dueDate !== updates.dueDate
+    ) {
+      addActivity(card, "changed the due date");
+    }
+  }
+
   Object.assign(card, updates);
 },
-
 //LABEL
 toggleLabel: (state, action) => {
   const {
@@ -222,7 +254,7 @@ toggleLabel: (state, action) => {
     cardId,
     label,
   } = action.payload;
-// console.log("PAYLOAD:", action.payload);
+
   const card = getCard(
     state,
     userId,
@@ -231,27 +263,35 @@ toggleLabel: (state, action) => {
     listId,
     cardId
   );
-// console.log("FOUND CARD:", card);
+
   if (!card) return;
 
- if (!card.labels) {
-  card.labels = [];
-}
+  if (!card.labels) {
+    card.labels = [];
+  }
 
-const exists = card.labels.some(
-  (item) => item.id === label.id
-);
+  const exists = card.labels.some(
+    (item) => item.id === label.id
+  );
 
   if (exists) {
     card.labels = card.labels.filter(
       (item) => item.id !== label.id
     );
+
+    addActivity(
+      card,
+      `removed the "${label.name}" label`
+    );
   } else {
     card.labels.push(label);
-  }
-  console.log("UPDATED LABELS:", card.labels);
-},
 
+    addActivity(
+      card,
+      `added the "${label.name}" label`
+    );
+  }
+},
 //toggle member
 toggleMember: (state, action) => {
   const {
@@ -271,11 +311,13 @@ toggleMember: (state, action) => {
     listId,
     cardId
   );
-// console.log(card);
+
   if (!card) return;
+
   if (!card.members) {
-  card.members = [];
-}          
+    card.members = [];
+  }
+
   const exists = card.members.some(
     (item) => item.id === member.id
   );
@@ -284,37 +326,19 @@ toggleMember: (state, action) => {
     card.members = card.members.filter(
       (item) => item.id !== member.id
     );
+
+    addActivity(
+      card,
+      `removed ${member.name} from the card`
+    );
   } else {
     card.members.push(member);
+
+    addActivity(
+      card,
+      `added ${member.name} to the card`
+    );
   }
-},
-//ADD ACTIVITY 
-addActivity: (state, action) => {
-  const {
-    userId,
-    workspaceId,
-    boardId,
-    listId,
-    cardId,
-    activity,
-  } = action.payload;
-
-  const card = getCard(
-    state,
-    userId,
-    workspaceId,
-    boardId,
-    listId,
-    cardId
-  );
-
-  if (!card) return;
-
-  card.activity.unshift({
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    ...activity,
-  });
 },
 
 // checklist 
@@ -339,7 +363,7 @@ addChecklist: (state, action) => {
 
   if (!card) return;
 
-  if (!card.checklist) {
+  if (!Array.isArray(card.checklist)) {
     card.checklist = [];
   }
 
@@ -348,8 +372,375 @@ addChecklist: (state, action) => {
     title,
     items: [],
   });
+
+  addActivity(card, `added checklist "${title}"`);
+},
+//add checklist item 
+addChecklistItem: (state, action) => {
+  // console.log("PAYLOAD:", action.payload);
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    checklistId,
+    title,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  if (!Array.isArray(card.checklist)) {
+    card.checklist = [];
+  }
+
+  const checklist = card.checklist.find(
+    (c) => c.id === checklistId
+  );
+// console.log("Checklist Found:", checklist);
+  if (!checklist) return;
+
+  if (!Array.isArray(checklist.items)) {
+    checklist.items = [];
+  }
+
+  checklist.items.push({
+    id: crypto.randomUUID(),
+    title,
+    completed: false,
+  });
+  addActivity(card, `added checklist item "${title}"`);
+  // console.log("Items:", checklist.items);
+},
+//toggle checklist item 
+toggleChecklistItem: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    checklistId,
+    itemId,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  const checklist = card.checklist.find(
+    (c) => c.id === checklistId
+  );
+
+  if (!checklist) return;
+
+  const item = checklist.items.find(
+    (i) => i.id === itemId
+  );
+
+  if (!item) return;
+
+  item.completed = !item.completed;
+  if (!wasCompleted) {
+  addActivity(
+    card,
+    `completed checklist item "${item.title}"`
+  );
+} else {
+  addActivity(
+    card,
+    `marked checklist item "${item.title}" incomplete`
+  );
+}
+},
+//delete checklist 
+deleteChecklist: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    checklistId,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  if (!Array.isArray(card.checklist)) {
+    card.checklist = [];
+  }
+
+  const checklist = card.checklist.find(
+    (list) => list.id === checklistId
+  );
+
+  if (!checklist) return;
+
+  addActivity(
+    card,
+    `deleted checklist "${checklist.title}"`
+  );
+
+  card.checklist = card.checklist.filter(
+    (list) => list.id !== checklistId
+  );
+},
+  //delete checklist item
+deleteChecklistItem: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    checklistId,
+    itemId,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  const checklist = card.checklist.find(
+    (c) => c.id === checklistId
+  );
+
+  if (!checklist) return;
+
+  const item = checklist.items.find(
+    (item) => item.id === itemId
+  );
+
+  if (!item) return;
+
+  addActivity(
+    card,
+    `deleted checklist item "${item.title}"`
+  );
+
+  checklist.items = checklist.items.filter(
+    (item) => item.id !== itemId
+  );
+},
+//add attachment
+addAttachment: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    attachment,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  if (!Array.isArray(card.attachments)) {
+    card.attachments = [];
+  }
+
+  card.attachments.push(attachment);
+
+  addActivity(
+    card,
+    `added attachment "${attachment.name}"`
+  );
 },
 
+// delete attachment
+deleteAttachment: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    attachmentId,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  if (!Array.isArray(card.attachments)) return;
+
+  const attachment = card.attachments.find(
+    (file) => file.id === attachmentId
+  );
+
+  if (!attachment) return;
+
+  addActivity(
+    card,
+    `deleted attachment "${attachment.name}"`
+  );
+
+  card.attachments = card.attachments.filter(
+    (file) => file.id !== attachmentId
+  );
+},
+//add comment
+addComment: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    comment,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  // console.log("FOUND CARD:", card);
+  // console.log("CARD ID:", cardId);
+
+  if (!card) return;
+
+  if (!card.comments) {
+    card.comments = [];
+  }
+
+  card.comments.push({
+    id: crypto.randomUUID(),
+    text: comment,
+    user: "Mehul",
+    createdAt: new Date().toISOString(),
+  });
+  addActivity(card, "added a comment");
+},
+//delete comment
+// delete comment
+deleteComment: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    commentId,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  const comment = card.comments.find(
+    (c) => c.id === commentId
+  );
+
+  if (!comment) return;
+
+  addActivity(
+    card,
+    `deleted comment "${comment.text}"`
+  );
+
+  card.comments = card.comments.filter(
+    (comment) => comment.id !== commentId
+  );
+},
+
+// edit comment
+editComment: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+    commentId,
+    text,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  const comment = card.comments.find(
+    (c) => c.id === commentId
+  );
+
+  if (!comment) return;
+
+  const oldText = comment.text;
+
+  comment.text = text;
+
+  addActivity(
+    card,
+    `edited comment from "${oldText}" to "${text}"`
+  );
+},
     // ================= MOVE CARD =================
 
     moveCard: (state, action) => {
@@ -458,10 +849,18 @@ export const {
   editBoard,
   deleteBoard,
   updateCard,
-  addActivity,
   toggleLabel,
   toggleMember,
   addChecklist,
+  addChecklistItem,
+  toggleChecklistItem,
+  deleteChecklistItem,
+  deleteChecklist,
+  addAttachment,
+  deleteAttachment,
+  addComment,
+  deleteComment,
+  editComment,
 } = workspaceSlice.actions;
 
 export default workspaceSlice.reducer;

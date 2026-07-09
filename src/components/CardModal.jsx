@@ -46,7 +46,7 @@ function CardModal({ card, list, cardContext, onClose }) {
             setTitle={setTitle}
           />
 
-          <ModalRight card={card} />
+          <ModalRight card={card} cardContext={cardContext}/>
         </div>
       </div>
     </div>
