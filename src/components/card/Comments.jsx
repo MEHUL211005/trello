@@ -55,15 +55,30 @@ const handleEditSave = (commentId) => {
 };
   return (
     <div className="mt-6">
-      <h3 className="mb-3 text-lg font-semibold">
-        Comments
-      </h3>
+<h3 className="
+  mb-4
+  text-base
+  font-semibold
+  text-slate-800
+">
+  Comments
+</h3>
 
       {!isEditing ? (
         <button
           onClick={() => setIsEditing(true)}
-          className="w-full rounded-md bg-slate-100 px-3 py-3 text-left text-sm text-slate-500 hover:bg-slate-200"
-        >
+className="
+  w-full
+  rounded-xl
+  bg-slate-100
+  px-4
+  py-4
+  text-left
+  text-sm
+  text-slate-500
+  transition
+  hover:bg-slate-200
+">
           Write a comment...
         </button>
       ) : (
@@ -148,15 +163,14 @@ const handleEditSave = (commentId) => {
             </p>
           </div>
 
-         <div className="relative gap-2">
+         <div className="relative flex items-center gap-3">
   <button
     onClick={() =>
       setDeleteCommentId(
         deleteCommentId === item.id ? null : item.id
       )
     }
-    className="text-xs font-medium text-red-500 hover:text-red-600"
-  >
+className="cursor-pointer text-xs font-medium text-red-500 hover:text-red-600"  >
     Delete
   </button>
   <button
@@ -164,8 +178,7 @@ const handleEditSave = (commentId) => {
     setEditingCommentId(item.id);
     setEditedComment(item.text);
   }}
-  className="text-xs font-medium text-blue-600 hover:text-blue-700"
->
+className="cursor-pointer text-xs font-medium text-blue-600 hover:text-blue-700">
   Edit
 </button>
 

@@ -70,25 +70,45 @@ const handleDeleteChecklist = (checklistId) => {
   return (
         <div
           key={list.id}
-          className="rounded-lg border border-slate-200 p-4"
-        >
+          className="
+          rounded-xl
+          border
+          border-slate-200
+          bg-white
+          p-5
+          shadow-sm
+          "
+          >
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">
-              {list.title}
-            </h3>
+          <h3 className="
+          text-base
+          font-semibold
+          text-slate-800
+          ">
+            {list.title}
+          </h3>
 
             <div className="relative">
   <button
-    onClick={() =>
-      setDeleteChecklistId(
-        deleteChecklistId === list.id ? null : list.id
-      )
-    }
-    className="text-sm text-red-500 hover:text-red-600"
-  >
-    Delete
-  </button>
+  onClick={() =>
+    setDeleteChecklistId(
+      deleteChecklistId === list.id ? null : list.id
+    )
+  }
+  className="
+    rounded-md
+    px-3
+    py-1.5
+    text-sm
+    text-slate-500
+    transition
+    hover:bg-red-50
+    hover:text-red-600
+  "
+>
+  Delete
+</button>
 
   {deleteChecklistId === list.id && (
     <DeleteChecklistPopover
@@ -108,7 +128,13 @@ const handleDeleteChecklist = (checklistId) => {
           {completedItems}/{totalItems}
           </span>
 
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+          <div className="
+            h-2
+            flex-1
+            overflow-hidden
+            rounded-full
+            bg-slate-200
+            ">
           <div
            className="h-full rounded-full bg-green-500 transition-all duration-300"
           style={{
@@ -127,9 +153,18 @@ const handleDeleteChecklist = (checklistId) => {
             <div className="mt-4 space-y-2">
               {list.items.map((item) => (
                 <div
-  key={item.id}
-  className="group flex items-center justify-between rounded-md p-2 hover:bg-slate-100"
->
+              key={item.id}
+              className="
+              group
+              flex
+              items-center
+              justify-between
+              rounded-lg
+              px-3
+              py-2
+              transition
+              hover:bg-slate-100
+              ">
   <div className="flex items-center gap-3">
     <input
       type="checkbox"
@@ -203,8 +238,18 @@ const handleDeleteChecklist = (checklistId) => {
                 setActiveChecklistId(list.id);
                 setItemTitle("");
               }}
-              className="mt-4 rounded-md bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
-            >
+              className="
+              mt-4
+              rounded-lg
+              bg-slate-100
+              px-4
+              py-2
+              text-sm
+              font-medium
+              text-slate-700
+              transition
+              hover:bg-slate-200
+              ">
               Add an item
             </button>
           )}

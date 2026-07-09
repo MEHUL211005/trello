@@ -5,3 +5,10 @@ body {
 .sidebar-btn {
   @apply flex items-center gap-3 px-2 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-100 cursor-pointer w-full;
 }
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}

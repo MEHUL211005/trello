@@ -72,7 +72,7 @@ const availableLabels = [
 const dispatch = useDispatch();
  return (
   <div className="mb-8">
-    <div className="flex flex-wrap gap-3">
+    <div className="flex items-center gap-2">
       {buttons.map((btn) => (
         <div key={btn.label} className="relative">
           <button
@@ -116,9 +116,20 @@ const dispatch = useDispatch();
               setShowChecklist(false);
               }
             }}
-            className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-100"
-          >
-            {btn.icon}
+            className="
+              flex
+              items-center
+              gap-1.5
+              rounded-md
+              border
+              border-slate-300
+              bg-white
+              px-3
+              py-2
+              text-sm
+              hover:bg-slate-100
+            ">
+                        {btn.icon}
             {btn.label}
           </button>
 
