@@ -161,6 +161,7 @@ const workspaceSlice = createSlice({
       comments: [],
       activity: [],
       archived: false,
+      completed:false,
     });
   }
 },
@@ -218,7 +219,6 @@ const workspaceSlice = createSlice({
   );
 
   if (!card) return;
-
   // Description
   if (
     updates.description !== undefined &&
@@ -244,6 +244,37 @@ const workspaceSlice = createSlice({
 
   Object.assign(card, updates);
 },
+//togglecompleted card
+toggleCardCompleted: (state, action) => {
+  const {
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId,
+  } = action.payload;
+
+  const card = getCard(
+    state,
+    userId,
+    workspaceId,
+    boardId,
+    listId,
+    cardId
+  );
+
+  if (!card) return;
+
+  card.completed = !card.completed;
+
+  addActivity(
+    card,
+    card.completed
+      ? "marked this card complete"
+      : "marked this card incomplete"
+  );
+},
+
 //LABEL
 toggleLabel: (state, action) => {
   const {
@@ -861,6 +892,7 @@ export const {
   addComment,
   deleteComment,
   editComment,
+  toggleCardCompleted,
 } = workspaceSlice.actions;
 
 export default workspaceSlice.reducer;

@@ -56,6 +56,7 @@ function CardModal({ card, list, cardContext, onClose }) {
         title={title}
         setTitle={setTitle}
         onClose={onClose}
+        cardContext={cardContext}
       />
 
       <div className="flex flex-1 overflow-hidden">

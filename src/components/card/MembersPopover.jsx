@@ -28,7 +28,7 @@ function MembersPopover({ cardContext, onClose }) {
         Members
       </h3>
 
-      <div className="space-y-2">
+      <div className="max-h-64 space-y-2 overflow-y-auto pr-1 light-scrollbar">
         {availableMembers.map((member) => (
           <div
   key={member.id}

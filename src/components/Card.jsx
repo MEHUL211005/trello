@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { FaEdit } from "react-icons/fa";
-import { CheckSquare , Paperclip , MessageSquare } from "lucide-react";
+import { CheckSquare , Paperclip , MessageSquare , Circle , CheckCircle2 } from "lucide-react";
+import { toggleCardCompleted } from "../redux/workspaceSlice";
+import { useDispatch } from "react-redux";
 
-function Card({ card, onDelete, onEdit, onOpen }) {
+function Card({ card, onDelete, onEdit, onOpen , cardContext }) {
   //  console.log("CARD DATA:", card);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(card.title);
   const [editedImage, setEditedImage] = useState(card.image || "");
-
+  const dispatch = useDispatch();
   // SIMPLE DELETE MODAL
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -54,8 +56,25 @@ const completedChecklistItems =
       <div
         ref={setNodeRef}
         style={style}
-        className="relative group overflow-hidden rounded-lg bg-white p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
-      >
+className="
+  relative
+  group
+  overflow-hidden
+  rounded-xl
+  border
+  border-transparent
+  bg-white
+  p-2
+  shadow-sm
+  cursor-pointer
+  transition-all
+  duration-200
+  hover:-translate-y-0.5
+  hover:shadow-md
+  hover:border-sky-500
+  hover:ring-2
+  hover:ring-sky-500/30
+"      >
         {/* EDIT MODE */}
         {isEditing ? (
           <div className="space-y-3">
@@ -144,12 +163,54 @@ const completedChecklistItems =
   onClick={() => onOpen(card)}
   {...listeners}
   {...attributes}
-  className="min-w-0 flex-1 w-full cursor-grab"
+  className="flex min-w-0 flex-1 cursor-grab"
 >
-  <p className="break-words whitespace-normal text-[14px] font-medium leading-5 text-slate-800">
-    {card.title}
-  </p>
-  <div className="mt-2 flex items-center justify-between">
+  <div
+  className={`
+    mr-2
+    mt-0.5
+    transition-all
+    duration-200
+    ${
+      card.completed
+        ? "opacity-100 translate-x-0"
+        : "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"
+    }
+  `}
+>
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+
+    dispatch(toggleCardCompleted(cardContext));
+  }}
+  className="
+    cursor-pointer
+    rounded-full
+    transition-transform
+    hover:scale-110
+  "
+>
+  {card.completed ? (
+    <CheckCircle2
+      size={18}
+      className="text-green-600"
+    />
+  ) : (
+    <Circle
+      size={18}
+      className="text-slate-400 hover:text-green-600"
+    />
+  )}
+</button>
+  </div>
+
+  <div className="min-w-0 flex-1">
+    <p className="break-words whitespace-normal text-[14px] font-medium leading-5 text-slate-800">
+      {card.title}
+    </p>
+
+    <div className="mt-2 flex items-center justify-between">
     {/* Due Date */}
     {card.dueDate ? (
       <div className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
@@ -174,13 +235,13 @@ const completedChecklistItems =
   </div>
 )}
 {card.attachments?.length > 0 && (
-  <div className="flex items-center gap-1 text-xs text-slate-600">
+  <div className="flex items-center gap-1 text-xs text-slate-600 ml-2">
     <Paperclip size={14} />
     {card.attachments.length}
   </div>
 )}
 {card.comments?.length > 0 && (
-  <div className="flex items-center gap-1 text-xs text-slate-600">
+  <div className="flex items-center gap-2 text-xs text-slate-600 ml-2">
     <MessageSquare size={14} />
     {card.comments.length}
   </div>
@@ -213,12 +274,16 @@ const completedChecklistItems =
                 </button>
 
                 <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 cursor-pointer"
-                >
-                  ✕
-                </button>
+  onClick={(e) => {
+    e.stopPropagation();
+    onOpen(card);
+  }}
+  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+>
+  ✕
+</button>
               </div>
+            </div>
             </div>
           </>
         )}

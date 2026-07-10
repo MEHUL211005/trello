@@ -195,13 +195,20 @@ className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col round
 >
   <div className="space-y-2">
     {list.cards.map((card) => (
-      <Card
-        key={card.id}
-        card={card}
-        onDelete={handleDeleteCard}
-        onEdit={handleEditCard}
-          onOpen={(card) => setSelectedCardId(card.id)}
-      />
+     <Card
+      key={card.id}
+      card={card}
+      onDelete={handleDeleteCard}
+      onEdit={handleEditCard}
+      onOpen={(card) => setSelectedCardId(card.id)}
+      cardContext={{
+        userId: user.id,
+        workspaceId,
+        boardId,
+        listId: list.id,
+        cardId: card.id,
+      }}
+    />
     ))}
   </div>
 </div>

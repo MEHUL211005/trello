@@ -140,7 +140,7 @@ const dispatch = useDispatch();
                 Labels
               </h3>
 
-              <div className="space-y-2">
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                 {availableLabels.map((label) => (
                   <div
                     key={label.id}
