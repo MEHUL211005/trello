@@ -16,7 +16,7 @@ const persistConfig = {
   storage,
 
   //  DO NOT fully ignore auth
-  whitelist: ["auth", "workspace"],
+  whitelist: ["auth"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
