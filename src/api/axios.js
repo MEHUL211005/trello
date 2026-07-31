@@ -2,33 +2,33 @@ import axios from "axios";
 
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers:{
+    "Content-Type":"application/json"
+  }
 });
 
+
 axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
+(config)=>{
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+ const persist = JSON.parse(
+   localStorage.getItem("persist:root")
+ );
 
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+ if(persist){
 
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-    }
+   const auth = JSON.parse(persist.auth);
 
-    return Promise.reject(error);
-  }
-);
+   if(auth.token){
+     config.headers.Authorization =
+     `Bearer ${auth.token}`;
+   }
+
+ }
+
+ return config;
+
+});
+
 
 export default axiosInstance;

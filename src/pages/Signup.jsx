@@ -1,43 +1,46 @@
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { signup } from "../redux/authSlice";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
+
+import { signupSchema } from "../validations/authSchema";
+import { signupUser } from "../api/authApi";
 
 const Signup = () => {
-  const dispatch = useDispatch();
+  
   const navigate = useNavigate();
 
-  const { error } = useSelector((state) => state.auth);
+  const [serverError, setServerError] = useState("");
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
+const {
+  register,
+  handleSubmit,
+  formState: { errors },
+  reset,
+} = useForm({
+  resolver: zodResolver(signupSchema),
+});
+const mutation = useMutation({
+  mutationFn: signupUser,
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  onSuccess: () => {
+    reset();
+    navigate("/login", { replace: true });
+  },
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  onError: (error) => {
+    setServerError(
+      error.response?.data?.message || "Signup failed"
+    );
+  },
+});
+  
 
-    const result = dispatch(signup(formData));
-
-    // 🔥 SIMPLE & SAFE NAVIGATION
-    if (!result?.payload && !error) {
-      setTimeout(() => {
-        navigate("/login");
-      }, 100);
-    } else {
-      setTimeout(() => {
-        navigate("/login");
-      }, 150);
-    }
-  };
+const onSubmit = (data) => {
+  setServerError("");
+  mutation.mutate(data);
+};
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4 py-8">
@@ -65,47 +68,65 @@ const Signup = () => {
             </p>
 
             {/* ERROR */}
-            {error && (
-              <div className="mt-4 bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+           {serverError && (
+            <div className="mt-4 bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm">
+              {serverError}
+            </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5">
 
+              <div>
               <input
                 type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
                 placeholder="Full Name"
+                {...register("name")}
                 className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
               />
 
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Email"
-                className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
-              />
+              {errors.name && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.name.message}
+                </p>
+              )}
+            </div>
 
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Password"
-                className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
-              />
+            <div>
+            <input
+              type="email"
+              placeholder="Email"
+              {...register("email")}
+              className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
+            />
 
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition cursor-pointer"
-              >
-                Create Account
-              </button>
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.email.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder="Password"
+              {...register("password")}
+              className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400"
+            />
+
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={mutation.isPending}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white py-3 rounded-xl font-semibold transition cursor-pointer"
+          >
+            {mutation.isPending ? "Creating Account..." : "Create Account"}
+          </button>
 
             </form>
 

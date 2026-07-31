@@ -266,19 +266,22 @@ className="
 
 
               <div className="flex gap-1 opacity-0 transition-all duration-150 group-hover:opacity-100">
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-                >
-                  <FaEdit />
-                </button>
-
-                <button
+               <button
   onClick={(e) => {
     e.stopPropagation();
-    onOpen(card);
+    setIsEditing(true);
   }}
   className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+>
+  <FaEdit />
+</button>
+
+              <button
+  onClick={(e) => {
+    e.stopPropagation();
+    setShowDeleteModal(true);
+  }}
+  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-600 cursor-pointer"
 >
   ✕
 </button>

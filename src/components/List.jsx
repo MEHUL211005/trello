@@ -1,19 +1,16 @@
 import { useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { deleteList as deleteListApi } from "../api/listApi";
 import { useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   PanelLeftClose,
   MoreHorizontal,
 } from "lucide-react";
-import {
-  addCard,
-  deleteList,
-  deleteCard,
-  editCard,
-} from "../redux/workspaceSlice";
+import { createCard, deleteCard as deleteCardApi, updateCard, } from "../api/cardApi";
 
 import Card from "./Card";
 import CardModal from "./CardModal";
@@ -21,11 +18,9 @@ import CardModal from "./CardModal";
 function List({ list }) {
   const { workspaceId, boardId } = useParams();
 
-  const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const { user } = useSelector((state) => state.auth);
-  const workspaceState = useSelector(
-  (state) => state.workspace
-);
+
   const [selectedCardId,setSelectedCardId] = useState(null);
   const { setNodeRef: setDropRef } = useDroppable({
     id: list.id,
@@ -53,90 +48,81 @@ function List({ list }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // ================= ADD CARD =================
-  const handleAddCard = () => {
-    if (!cardTitle.trim()) return;
+const handleAddCard = async () => {
+  if (!cardTitle.trim()) return;
 
-    dispatch(
-      addCard({
-        userId: user.id,
-        workspaceId,
-        boardId,
-        listId: list.id,
-        card: {
-          title: cardTitle,
-          image: cardImage,
-        },
-      })
-    );
+  try {
+    await createCard({
+      title: cardTitle,
+      image: cardImage,
+      listId: list.id,
+    });
+
+    queryClient.invalidateQueries({
+      queryKey: ["board", boardId],
+    });
 
     setCardTitle("");
     setCardImage(null);
     setIsAddingCard(false);
-  };
+
+  } catch (error) {
+    console.error("Add card error:", error);
+  }
+};
 
   // ================= DELETE CARD =================
-  const handleDeleteCard = (cardId) => {
-    dispatch(
-      deleteCard({
-        userId: user.id,
-        workspaceId,
-        boardId,
-        listId: list.id,
-        cardId,
-      })
-    );
-  };
+ const handleDeleteCard = async (cardId) => {
+  try {
+    await deleteCardApi(cardId);
+
+    queryClient.invalidateQueries({
+      queryKey: ["board", boardId],
+    });
+
+  } catch (error) {
+    console.error("Delete card error:", error);
+  }
+};
 
   // ================= DELETE LIST =================
-  const handleDeleteList = () => {
-    dispatch(
-      deleteList({
-        userId: user.id,
-        workspaceId,
-        boardId,
-        listId: list.id,
-      })
-    );
+const handleDeleteList = async () => {
+  try {
+    await deleteListApi(list.id);
+
+    queryClient.invalidateQueries({
+      queryKey: ["board", boardId],
+    });
 
     setShowDeleteModal(false);
-  };
+
+  } catch (error) {
+    console.error("Delete list error:", error);
+  }
+};
 
   // ================= EDIT CARD =================
-  const handleEditCard = (cardId, newTitle, newImage) => {
-    if (!newTitle.trim()) return;
+  const handleEditCard = async (cardId, newTitle, newImage) => {
+  if (!newTitle.trim()) return;
 
-    dispatch(
-      editCard({
-        userId: user.id,
-        workspaceId,
-        boardId,
-        listId: list.id,
-        cardId,
-        title: newTitle,
-        image: newImage,
-      })
-    );
-  };
-  // console.log("selectedCardId:", selectedCardId);
-// console.log("list.id (prop):", list.id);
+  try {
+    await updateCard(cardId, {
+      title: newTitle,
+      image: newImage,
+    });
 
-// const reduxList = workspaceState.users[user.id]
-//   ?.workspaces
-//   .find((w) => w.id === workspaceId)
-//   ?.boards.find((b) => b.id === boardId)
-//   ?.lists.find((l) => l.id === list.id);
+    queryClient.invalidateQueries({
+      queryKey: ["board", boardId],
+    });
 
-// console.log("Redux cards:", reduxList?.cards);
-const selectedCard = workspaceState.users[user.id]
-
-  ?.workspaces
-  .find((w) => w.id === workspaceId)
-  ?.boards
-  .find((b) => b.id === boardId)
-  ?.lists
-  .find((l) => l.id === list.id)
-  ?.cards
-  .find((c) => c.id === selectedCardId);
+  } catch (error) {
+    console.error("Edit card error:", error);
+  }
+};
+ 
+const selectedCard = list.cards.find(
+  (c) => c.id === selectedCardId
+);
   // console.log("SELECTED CARD:", selectedCard);
   
   return (
@@ -157,7 +143,7 @@ className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col round
     {...listeners}
     className="cursor-grab select-none text-sm font-semibold text-slate-800"
   >
-    {list.title}
+    {list.name}
   </h2>
 
   {/* Right */}

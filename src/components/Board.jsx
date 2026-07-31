@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import List from "./List";
-import { useSelector, useDispatch } from "react-redux";
-import { addList, moveCard, moveList } from "../redux/workspaceSlice";
+import { useSelector } from "react-redux";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getBoardById } from "../api/boardApi";
 import { useParams } from "react-router-dom";
 import {
   Eye,
@@ -27,11 +28,12 @@ import {
 
 import Navbar from "./Navbar";
 import BottomBar from "./BottomBar";
+import { createList } from "../api/listApi";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
+const queryClient = useQueryClient();
 
-  const dispatch = useDispatch();
   const sensors = useSensors(
   useSensor(PointerSensor, {
     activationConstraint: {
@@ -41,21 +43,28 @@ const Board = () => {
 );
   const [search, setSearch] = useState("");
   const { user } = useSelector((state) => state.auth);
-
-  const board = useSelector((state) => {
-    if (!user) return null;
-
-    const workspace = state.workspace.users?.[user.id]?.workspaces?.find(
-      (w) => w.id === workspaceId,
-    );
-
-    return workspace?.boards?.find((b) => b.id === boardId) || null;
-  });
-
+  
+    const {
+  data: boardData,
+  isLoading,
+} = useQuery({
+  queryKey: ["board", boardId],
+  queryFn: () => getBoardById(boardId),
+  enabled: !!user && !!boardId,
+});
+const board = boardData?.board || null;
   const lists = board?.lists || [];
 
   const [isAddingList, setIsAddingList] = useState(false);
   const [listTitle, setListTitle] = useState("");
+
+  if (isLoading) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
+      Loading Board...
+    </div>
+  );
+}
 
   if (!board) {
     return (
@@ -80,24 +89,26 @@ const Board = () => {
 
   // ================= ADD LIST =================
 
-  const handleAddList = () => {
-    if (!listTitle.trim()) return;
+  const handleAddList = async () => {
+  if (!listTitle.trim()) return;
 
-    dispatch(
-      addList({
-        userId: user.id,
-        workspaceId,
-        boardId,
-        list: {
-          title: listTitle,
-        },
-      }),
-    );
+  try {
+    await createList({
+      name: listTitle,
+      boardId,
+    });
+
+    queryClient.invalidateQueries({
+      queryKey: ["board", boardId],
+    });
 
     setListTitle("");
     setIsAddingList(false);
-  };
 
+  } catch (error) {
+    console.error("Create list error:", error);
+  }
+};
   // ================= DRAG END =================
 
   const handleDragEnd = (event) => {
