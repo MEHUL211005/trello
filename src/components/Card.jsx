@@ -1,28 +1,63 @@
 import { useState } from "react";
-import { useDraggable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { FaEdit } from "react-icons/fa";
+import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { toggleCardCompletedApi } from "../api/cardApi";
+import { getCardLabels } from "../api/labelApi";
 import { CheckSquare , Paperclip , MessageSquare , Circle , CheckCircle2 } from "lucide-react";
-import { toggleCardCompleted } from "../redux/workspaceSlice";
-import { useDispatch } from "react-redux";
 
 function Card({ card, onDelete, onEdit, onOpen , cardContext }) {
   //  console.log("CARD DATA:", card);
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(card.title);
-  const [editedImage, setEditedImage] = useState(card.image || "");
-  const dispatch = useDispatch();
+  const [editedImage, setEditedImage] = useState(card.coverImage || "");
   // SIMPLE DELETE MODAL
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+const handleToggleComplete = async(e)=>{
+  try{
 
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: card.id,
-  });
+    await toggleCardCompletedApi(card.id);
 
-  const style = {
-    transform: transform
-      ? `translate(${transform.x}px, ${transform.y}px)`
-      : undefined,
-  };
+    queryClient.invalidateQueries({
+      queryKey:["board", cardContext.boardId],
+    });
+
+  }catch(error){
+
+    console.log(error);
+
+  }
+};
+const {
+  attributes,
+  listeners,
+  setNodeRef,
+  transform,
+  transition,
+} = useSortable({
+  id: card.id,
+});
+const {
+  data: labelsData,
+} = useQuery({
+
+  queryKey:["cardLabels", card.id],
+
+  queryFn:()=>getCardLabels(card.id),
+
+  enabled:!!card.id,
+
+});
+
+
+const labels = labelsData?.labels || [];
+ const style = {
+  transform: CSS.Transform.toString(transform),
+  transition,
+};
 
   const handleSave = () => {
     if (!editedTitle.trim()) return;
@@ -36,45 +71,50 @@ function Card({ card, onDelete, onEdit, onOpen , cardContext }) {
     setShowDeleteModal(false);
   };
 const totalChecklistItems =
-  card.checklist?.reduce(
+  card.Checklists?.reduce(
     (total, checklist) =>
-      total + checklist.items.length,
+      total + (checklist.ChecklistItems?.length || 0),
     0
   ) || 0;
 
+
 const completedChecklistItems =
-  card.checklist?.reduce(
+  card.Checklists?.reduce(
     (total, checklist) =>
       total +
-      checklist.items.filter(
+      (checklist.ChecklistItems?.filter(
         (item) => item.completed
-      ).length,
+      ).length || 0),
     0
   ) || 0;
+  // console.log("CARD ATTACHMENTS:", card.Attachments);
   return (
     <>
       <div
-        ref={setNodeRef}
-        style={style}
-className="
-  relative
-  group
-  overflow-hidden
-  rounded-xl
-  border
-  border-transparent
-  bg-white
-  p-2
-  shadow-sm
-  cursor-pointer
-  transition-all
-  duration-200
-  hover:-translate-y-0.5
-  hover:shadow-md
-  hover:border-sky-500
-  hover:ring-2
-  hover:ring-sky-500/30
-"      >
+ ref={setNodeRef}
+ style={style}
+ {...listeners}
+ {...attributes}
+ className="
+ relative
+ group
+ overflow-hidden
+ rounded-xl
+ border
+ border-transparent
+ bg-white
+ p-2
+ shadow-sm
+ cursor-grab
+ transition-all
+ duration-200
+ hover:-translate-y-0.5
+ hover:shadow-md
+ hover:border-sky-500
+ hover:ring-2
+ hover:ring-sky-500/30
+ "
+>
         {/* EDIT MODE */}
         {isEditing ? (
           <div className="space-y-3">
@@ -124,7 +164,7 @@ className="
                 onClick={() => {
                   setIsEditing(false);
                   setEditedTitle(card.title);
-                  setEditedImage(card.image || "");
+                  setEditedImage(card.coverImage || "");
                 }}
                 className="rounded-lg bg-slate-600 px-3 py-2 text-sm text-white hover:bg-slate-500 cursor-pointer"
               >
@@ -135,17 +175,23 @@ className="
         ) : (
           <>
             {/* IMAGE */}
-            {card.image && (
-              <img
-                src={card.image}
-                alt={card.title}
-               className="mb-2 h-28 w-full rounded-lg object-cover"
-              />
-            )}
+        {card.coverImage && (
+  <div className="mb-2 flex h-28 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
+    <img
+      src={
+        card.coverImage.startsWith("http")
+          ? card.coverImage
+          : `http://localhost:5000${card.coverImage}`
+      }
+      alt={card.title}
+      className="max-h-full max-w-full object-contain"
+    />
+  </div>
+)}
 {/* LABELS */}
-{card.labels?.length > 0 && (
+{labels.length > 0 && (
   <div className="mb-2 flex flex-wrap gap-1">
-    {card.labels.map((label) => (
+    {labels.map((label) => (
       <div
         key={label.id}
         className="h-3 w-16 rounded-sm"
@@ -159,11 +205,9 @@ className="
 
             {/* CONTENT */}
             <div className="flex min-w-0 items-start justify-between gap-2">
- <div
-  onClick={() => onOpen(card)}
-  {...listeners}
-  {...attributes}
-  className="flex min-w-0 flex-1 cursor-grab"
+<div
+ onClick={() => onOpen(card)}
+ className="flex min-w-0 flex-1"
 >
   <div
   className={`
@@ -172,7 +216,7 @@ className="
     transition-all
     duration-200
     ${
-      card.completed
+      card.isCompleted
         ? "opacity-100 translate-x-0"
         : "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"
     }
@@ -181,8 +225,7 @@ className="
 <button
   onClick={(e) => {
     e.stopPropagation();
-
-    dispatch(toggleCardCompleted(cardContext));
+    handleToggleComplete(e);
   }}
   className="
     cursor-pointer
@@ -191,7 +234,7 @@ className="
     hover:scale-110
   "
 >
-  {card.completed ? (
+  {card.isCompleted ? (
     <CheckCircle2
       size={18}
       className="text-green-600"
@@ -234,10 +277,10 @@ className="
     <CheckSquare size={13} /> <span>{completedChecklistItems}/{totalChecklistItems}</span>
   </div>
 )}
-{card.attachments?.length > 0 && (
+{card.Attachments?.length > 0 && (
   <div className="flex items-center gap-1 text-xs text-slate-600 ml-2">
     <Paperclip size={14} />
-    {card.attachments.length}
+    {card.Attachments.length}
   </div>
 )}
 {card.comments?.length > 0 && (
@@ -247,20 +290,22 @@ className="
   </div>
 )}
 {/* Members */}
-    {card.members?.length > 0 && (
-      <div className="ml-auto flex">
-        {card.members.map((member, index) => (
-          <div
-            key={member.id}
-            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-[10px] font-semibold text-white ${
-              index !== 0 ? "-ml-2" : ""
-            }`}
-          >
-            {member.avatar}
-          </div>
-        ))}
+   {/* console.log("CARD MEMBERS:", card.members); */}
+{card.members?.length > 0 && (
+  <div className="ml-auto flex">
+    {card.members.map((member, index) => (
+      <div
+        key={member.id}
+        className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-[10px] font-semibold text-white ${
+          index !== 0 ? "-ml-2" : ""
+        }`}
+        title={member.name}
+      >
+        {member.name?.charAt(0).toUpperCase()}
       </div>
-    )}
+    ))}
+  </div>
+)}
   </div>
 </div>
 

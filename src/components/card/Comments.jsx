@@ -1,84 +1,208 @@
 import { useState } from "react";
-import { useDispatch } from "react-redux";
-import { addComment , deleteComment , editComment } from "../../redux/workspaceSlice";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+
+import {
+  getComments,
+  addComment,
+  deleteComment,
+  updateComment,
+} from "../../api/commentApi";
+
 import DeleteCommentPopover from "./DeleteCommentPopover";
 
 function Comments({ card, cardContext }) {
-  // console.log("CARD:", card);
-  // console.log("CARD COMMENTS:", card?.comments);
+
+  const queryClient = useQueryClient();
 
   const [isEditing, setIsEditing] = useState(false);
   const [comment, setComment] = useState("");
-const [deleteCommentId, setDeleteCommentId] = useState(null);
-const [editingCommentId, setEditingCommentId] = useState(null);
-const [editedComment, setEditedComment] = useState("");
-  const dispatch = useDispatch();
+
+  const [deleteCommentId, setDeleteCommentId] = useState(null);
+
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editedComment, setEditedComment] = useState("");
+
+
+
+  const {
+    data: commentsData,
+  } = useQuery({
+
+    queryKey:[
+      "comments",
+      cardContext.cardId
+    ],
+
+    queryFn:()=>
+      getComments(cardContext.cardId),
+
+  });
+
+
+
+  const comments = commentsData?.comments || [];
+
+
+
+  const addMutation = useMutation({
+
+    mutationFn:addComment,
+
+onSuccess:()=>{
+
+  queryClient.invalidateQueries({
+    queryKey:[
+      "comments",
+      cardContext.cardId
+    ]
+  });
+
+  queryClient.invalidateQueries({
+    queryKey:[
+      "activities",
+      cardContext.cardId
+    ]
+  });
+
+  queryClient.invalidateQueries({
+    queryKey:[
+      "board",
+      cardContext.boardId
+    ]
+  });
+
+}
+
+  });
+
+
+
+  const deleteMutation = useMutation({
+
+    mutationFn:deleteComment,
+
+    onSuccess:()=>{
+
+      queryClient.invalidateQueries({
+        queryKey:[
+          "comments",
+          cardContext.cardId
+        ]
+      });
+
+      queryClient.invalidateQueries({
+        queryKey:[
+          "board",
+          cardContext.boardId
+        ]
+      });
+
+    }
+
+  });
+
+
+
+  const updateMutation = useMutation({
+
+    mutationFn:updateComment,
+
+    onSuccess:()=>{
+
+      queryClient.invalidateQueries({
+        queryKey:[
+          "comments",
+          cardContext.cardId
+        ]
+      });
+
+      queryClient.invalidateQueries({
+        queryKey:[
+          "board",
+          cardContext.boardId
+        ]
+      });
+
+    }
+
+  });
+
+
 
   const handleSave = () => {
-  if (!comment.trim()) return;
 
-  // console.log("Saving comment...");
+    if (!comment.trim()) return;
 
-  dispatch(
-    addComment({
-      ...cardContext,
-      comment,
-    })
-  );
+    addMutation.mutate({
+      cardId: cardContext.cardId,
+      text: comment,
+    });
 
-  // console.log("Dispatched");
+    setComment("");
+    setIsEditing(false);
 
-  setComment("");
-  setIsEditing(false);
-};
-const handleDelete = (commentId) => {
-  dispatch(
-    deleteComment({
-      ...cardContext,
-      commentId,
-    })
-  );
-};
-const handleEditSave = (commentId) => {
-  if (!editedComment.trim()) return;
+  };
 
-  dispatch(
-    editComment({
-      ...cardContext,
+
+
+  const handleDelete = (commentId) => {
+
+    deleteMutation.mutate(commentId);
+
+  };
+
+
+
+  const handleEditSave = (commentId) => {
+
+    if (!editedComment.trim()) return;
+
+    updateMutation.mutate({
       commentId,
       text: editedComment,
-    })
-  );
+    });
 
-  setEditingCommentId(null);
-  setEditedComment("");
-};
+    setEditingCommentId(null);
+    setEditedComment("");
+
+  };
+
+
+
   return (
     <div className="mt-6">
-<h3 className="
-  mb-4
-  text-base
-  font-semibold
-  text-slate-800
-">
-  Comments
-</h3>
+
+      <h3
+        className="
+          mb-4
+          text-base
+          font-semibold
+          text-slate-800
+        "
+      >
+        Comments
+      </h3>
 
       {!isEditing ? (
         <button
           onClick={() => setIsEditing(true)}
-className="
-  w-full
-  rounded-xl
-  bg-slate-100
-  px-4
-  py-4
-  text-left
-  text-sm
-  text-slate-500
-  transition
-  hover:bg-slate-200
-">
+          className="
+            w-full
+            rounded-xl
+            bg-slate-100
+            px-4
+            py-4
+            text-left
+            text-sm
+            text-slate-500
+            transition
+            hover:bg-slate-200
+          "
+        >
           Write a comment...
         </button>
       ) : (
@@ -112,96 +236,114 @@ className="
       )}
 
       {/* Saved Comments */}
-      {card?.comments?.length > 0 && (
-  <div className="mt-5 space-y-3">
-    {card.comments.map((item) => (
-      <div
-        key={item.id}
-        className="rounded-lg border border-slate-200 bg-white p-3"
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm font-semibold">
-              {item.user}
-            </p>
+      {comments.length > 0 && (
+        <div className="mt-5 space-y-3">
 
-            {editingCommentId === item.id ? (
-  <div className="mt-2">
-    <textarea
-      value={editedComment}
-      onChange={(e) => setEditedComment(e.target.value)}
-      className="min-h-[80px] w-full rounded-md border border-slate-300 p-2 text-sm outline-none"
-    />
+          {comments.map((item) => (
 
-    <div className="mt-2 flex gap-2">
-      <button
-        onClick={() => handleEditSave(item.id)}
-        className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-500"
-      >
-        Save
-      </button>
+            <div
+              key={item.id}
+              className="rounded-lg border border-slate-200 bg-white p-3"
+            >
 
-      <button
-        onClick={() => {
-          setEditingCommentId(null);
-          setEditedComment("");
-        }}
-        className="rounded-md bg-slate-200 px-3 py-1 text-sm hover:bg-slate-300"
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-) : (
-  <p className="mt-1 text-sm text-slate-700">
-    {item.text}
-  </p>
-)}
+              <div className="flex items-start justify-between">
 
-            <p className="mt-1 text-xs text-slate-400">
-              {new Date(item.createdAt).toLocaleString()}
-            </p>
-          </div>
+                <div>
 
-         <div className="relative flex items-center gap-3">
-  <button
-    onClick={() =>
-      setDeleteCommentId(
-        deleteCommentId === item.id ? null : item.id
-      )
-    }
-className="cursor-pointer text-xs font-medium text-red-500 hover:text-red-600"  >
-    Delete
-  </button>
-  <button
-  onClick={() => {
-    setEditingCommentId(item.id);
-    setEditedComment(item.text);
-  }}
-className="cursor-pointer text-xs font-medium text-blue-600 hover:text-blue-700">
-  Edit
-</button>
+                  <p className="text-sm font-semibold">
+                    {item.User?.name || "User"}
+                  </p>
 
-  {deleteCommentId === item.id && (
-    <DeleteCommentPopover
-      onDelete={() => {
-        handleDelete(item.id);
-        setDeleteCommentId(null);
-      }}
-      onClose={() => setDeleteCommentId(null)}
-    />
-  )}
-</div>
+                  {editingCommentId === item.id ? (
+                    <div className="mt-2">
+
+                      <textarea
+                        value={editedComment}
+                        onChange={(e) => setEditedComment(e.target.value)}
+                        className="min-h-[80px] w-full rounded-md border border-slate-300 p-2 text-sm outline-none"
+                      />
+
+                      <div className="mt-2 flex gap-2">
+
+                        <button
+                          onClick={() => handleEditSave(item.id)}
+                          className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-500"
+                        >
+                          Save
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setEditingCommentId(null);
+                            setEditedComment("");
+                          }}
+                          className="rounded-md bg-slate-200 px-3 py-1 text-sm hover:bg-slate-300"
+                        >
+                          Cancel
+                        </button>
+
+                      </div>
+
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-slate-700">
+                      {item.text}
+                    </p>
+                  )}
+
+                  <p className="mt-1 text-xs text-slate-400">
+                    {new Date(item.createdAt).toLocaleString()}
+                  </p>
+
+                </div>
+
+                <div className="relative flex items-center gap-3">
+
+                  <button
+                    onClick={() =>
+                      setDeleteCommentId(
+                        deleteCommentId === item.id ? null : item.id
+                      )
+                    }
+                    className="cursor-pointer text-xs font-medium text-red-500 hover:text-red-600"
+                  >
+                    Delete
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setEditingCommentId(item.id);
+                      setEditedComment(item.text);
+                    }}
+                    className="cursor-pointer text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Edit
+                  </button>
+
+                  {deleteCommentId === item.id && (
+                    <DeleteCommentPopover
+                      onDelete={() => {
+                        handleDelete(item.id);
+                        setDeleteCommentId(null);
+                      }}
+                      onClose={() => setDeleteCommentId(null)}
+                    />
+                  )}
+
+                </div>
+
+              </div>
+
+            </div>
+
+          ))}
+
         </div>
-      </div>
-    ))}
-  </div>
-)}
+      )}
+
     </div>
   );
+
 }
 
 export default Comments;
-
-
-

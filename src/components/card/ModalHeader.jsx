@@ -4,9 +4,9 @@ import {
   Circle,
   CheckCircle2,
 } from "lucide-react";
-import { useDispatch } from "react-redux";
-import { toggleCardCompleted } from "../../redux/workspaceSlice";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { toggleCardCompletedApi } from "../../api/cardApi";
 function ModalHeader({
   card,
   list,
@@ -15,20 +15,40 @@ function ModalHeader({
   onClose,
   cardContext,
 }) {
-  const dispatch = useDispatch();
+const queryClient = useQueryClient();
+
+const handleToggleComplete = async () => {
+  try {
+
+    await toggleCardCompletedApi(card.id);
+
+    queryClient.invalidateQueries({
+      queryKey:["board", cardContext.boardId],
+    });
+
+  } catch(error) {
+
+    console.log(error);
+
+  }
+};
 
   return (
     <>
       {/* Cover */}
-      {card.image && (
-        <div className="max-h-[220px] overflow-hidden bg-slate-100">
-          <img
-            src={card.image}
-            alt={card.title}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
+     {card.coverImage && (
+  <div className="max-h-[220px] overflow-hidden bg-slate-100 flex items-center justify-center">
+    <img
+      src={
+        card.coverImage.startsWith("http")
+          ? card.coverImage
+          : `http://localhost:5000${card.coverImage}`
+      }
+      alt={card.title}
+      className="max-h-[220px] w-auto object-contain"
+    />
+  </div>
+)}
 
       {/* Header */}
       <div
@@ -46,9 +66,7 @@ function ModalHeader({
         <div className="flex flex-1 gap-4">
           {/* Complete / Incomplete */}
           <button
-            onClick={() =>
-              dispatch(toggleCardCompleted(cardContext))
-            }
+  onClick={handleToggleComplete}
             className="
               mt-1
               flex
@@ -63,7 +81,7 @@ function ModalHeader({
               cursor-pointer
             "
           >
-            {card.completed ? (
+            {card.isCompleted ? (
               <CheckCircle2
                 size={24}
                 className="text-green-600"
@@ -111,7 +129,7 @@ function ModalHeader({
                 outline-none
                 placeholder:text-slate-400
                 ${
-                  card.completed
+                  card.isCompleted
                     ? "text-slate-500"
                     : "text-slate-800"
                 }

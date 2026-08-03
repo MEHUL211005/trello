@@ -30,7 +30,7 @@ function ModalLabels({ labels }) {
               py-1.5
               text-sm
               font-semibold
-              text-white
+              text- bg-slate-600
               shadow-sm
             "
             style={{

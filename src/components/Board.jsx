@@ -20,6 +20,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+    closestCenter,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -29,6 +30,9 @@ import {
 import Navbar from "./Navbar";
 import BottomBar from "./BottomBar";
 import { createList } from "../api/listApi";
+import { updateCard } from "../api/cardApi";
+import { reorderCards } from "../api/cardApi";
+import { reorderLists } from "../api/listApi";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
@@ -54,6 +58,23 @@ const queryClient = useQueryClient();
 });
 const board = boardData?.board || null;
   const lists = board?.lists || [];
+  console.log(
+  "CARD DATA",
+  JSON.stringify(
+    lists.map((list)=>({
+      listId:list.id,
+      name:list.name,
+      cards:list.cards?.map(card=>({
+        id:card.id,
+        title:card.title,
+        position:card.position,
+        listId:card.listId
+      }))
+    })),
+    null,
+    2
+  )
+);
 
   const [isAddingList, setIsAddingList] = useState(false);
   const [listTitle, setListTitle] = useState("");
@@ -109,43 +130,184 @@ const board = boardData?.board || null;
     console.error("Create list error:", error);
   }
 };
+
+const findCardList = (cardId) => {
+  return lists.find((list) =>
+    list.cards.some((card) => card.id === cardId)
+  );
+};
   // ================= DRAG END =================
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
+ const handleDragEnd = async (event) => {
+  
+  const { active, over } = event;
+  console.log("ACTIVE", active.id);
+  console.log("OVER", over?.id);
+  if (!over) return;
 
-    if (!over) return;
 
-    const activeList = lists.find((list) =>
-      list.cards.some((card) => card.id === active.id),
-    );
+  const activeId = active.id;
+  const overId = over.id;
 
-    // CARD MOVE
-    if (activeList) {
-      dispatch(
-        moveCard({
-          userId: user.id,
-          workspaceId,
-          boardId,
-          cardId: active.id,
-          newListId: over.id,
-        }),
-      );
-      return;
-    }
 
-    // LIST MOVE
-    dispatch(
-      moveList({
-        userId: user.id,
-        workspaceId,
-        boardId,
-        activeId: active.id,
-        overId: over.id,
-      }),
-    );
-  };
+  // =====================
+  // CHECK CARD DRAG
+  // =====================
 
+  const sourceList = findCardList(activeId);
+
+if(sourceList){
+
+ let destinationList;
+
+ const cardTargetList = findCardList(overId);
+
+ if(cardTargetList){
+   destinationList = cardTargetList;
+ }
+ else{
+   destinationList = lists.find(
+      (list)=>list.id === overId
+   );
+ }
+
+
+ if(!destinationList) return;
+
+
+ console.log(
+   "CARD MOVE",
+   activeId,
+   sourceList.id,
+   destinationList.id
+ );
+
+
+ // SAME LIST DROP
+ if(sourceList.id === destinationList.id){
+
+ const cards = [...sourceList.cards];
+
+ const oldIndex = cards.findIndex(
+   (card)=>card.id === activeId
+ );
+
+ const newIndex = cards.findIndex(
+   (card)=>card.id === overId
+ );
+
+
+ if(oldIndex === -1 || newIndex === -1) return;
+
+
+ const [movedCard] = cards.splice(oldIndex,1);
+
+ cards.splice(newIndex,0,movedCard);
+
+
+ const updatedCards = cards.map(
+   (card,index)=>({
+     id:card.id,
+     position:index
+   })
+ );
+
+
+ await reorderCards({
+   cards:updatedCards
+ });
+
+
+ queryClient.invalidateQueries({
+   queryKey:["board",boardId],
+ });
+
+
+ return;
+}
+
+
+const newPosition = destinationList.cards.length;
+
+
+await updateCard(activeId,{
+   listId: destinationList.id,
+   position: newPosition,
+});
+
+
+ queryClient.invalidateQueries({
+   queryKey:["board", boardId],
+ });
+
+
+ return;
+}
+
+
+
+  // =====================
+// LIST DRAG
+// =====================
+
+const oldIndex = lists.findIndex(
+  (list) => list.id === activeId
+);
+
+const newIndex = lists.findIndex(
+  (list) => list.id === overId
+);
+
+if (oldIndex === -1 || newIndex === -1) return;
+
+
+// frontend reorder
+
+const updatedLists = [...lists];
+
+const [movedList] = updatedLists.splice(oldIndex,1);
+
+updatedLists.splice(newIndex,0,movedList);
+
+
+// backend data
+
+const payload = updatedLists.map((list,index)=>({
+  id:list.id,
+  position:index,
+}));
+
+console.log("LIST REORDER DATA",payload);
+
+
+// API call
+
+await reorderLists({
+  lists: payload,
+});
+
+console.log("AFTER REORDER", updatedLists);
+
+queryClient.setQueryData(
+  ["board", boardId],
+  (oldData) => {
+    if (!oldData) return oldData;
+
+    return {
+      ...oldData,
+      board: {
+        ...oldData.board,
+        lists: updatedLists,
+      },
+    };
+  }
+);
+
+queryClient.invalidateQueries({
+  queryKey:["board",boardId],
+});
+};
+// console.log("LISTS DATA", lists);
   return (
 <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950">
       <Navbar
@@ -210,6 +372,7 @@ const board = boardData?.board || null;
 
       <DndContext
   sensors={sensors}
+    collisionDetection={closestCenter}
   onDragEnd={handleDragEnd}
 >
         <SortableContext
@@ -218,7 +381,7 @@ const board = boardData?.board || null;
         >
           <div className="flex-1 overflow-x-auto px-3 sm:px-6 py-4 sm:py-6">
             <div className="flex min-w-max items-start gap-3 sm:gap-6">
-             {filteredLists.map((list) => (
+       {lists.map((list) => (
   <List key={list.id} list={list} />
 ))}
 

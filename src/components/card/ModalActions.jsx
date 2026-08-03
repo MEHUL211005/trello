@@ -6,8 +6,12 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useState } from "react";
-import { useDispatch } from "react-redux";
-import { toggleLabel } from "../../redux/workspaceSlice";
+import { 
+  useMutation,
+  useQueryClient
+} from "@tanstack/react-query";
+import { toggleLabel } from "../../api/labelApi";
+import { getCardLabels } from "../../api/labelApi";
 import DatePicker from "./DatePicker";
 import MembersPopover from "./MembersPopover";
 import ChecklistPopover from "./ChecklistPopover";
@@ -20,6 +24,37 @@ function ModalActions({
   listId,
   cardId,
 }) {
+  const queryClient = useQueryClient();
+  const toggleLabelMutation = useMutation({
+
+  mutationFn: ({ cardId, labelId }) =>
+    toggleLabel({
+      cardId,
+      labelId,
+    }),
+
+
+  onSuccess: () => {
+
+    // refresh card labels
+    queryClient.invalidateQueries({
+      queryKey:["cardLabels", cardId],
+    });
+
+
+  },
+
+
+  onError:(error)=>{
+
+    console.log(
+      "LABEL TOGGLE ERROR:",
+      error
+    );
+
+  },
+
+});
 const [showLabels, setShowLabels] = useState(false);
 const [showDates, setShowDates] = useState(false);
 const [showMembers, setShowMembers] = useState(false);
@@ -27,24 +62,19 @@ const [showChecklist, setShowChecklist] = useState(false);
 const [showAttachments, setShowAttachments] = useState(false);
 const availableLabels = [
   {
-    id: "red",
+    id: 1,
     name: "Bug",
     color: "#ef4444",
   },
   {
-    id: "yellow",
-    name: "Priority",
-    color: "#eab308",
-  },
-  {
-    id: "green",
+    id: 2,
     name: "Feature",
-    color: "#22c55e",
+    color: "#3b82f6",
   },
   {
-    id: "blue",
-    name: "Design",
-    color: "#3b82f6",
+    id: 3,
+    name: "Urgent",
+    color: "#eab308",
   },
 ];
   const buttons = [
@@ -69,7 +99,7 @@ const availableLabels = [
       label: "Members",
     },
   ];
-const dispatch = useDispatch();
+
  return (
   <div className="mb-8">
     <div className="flex items-center gap-2">
@@ -144,18 +174,12 @@ const dispatch = useDispatch();
                 {availableLabels.map((label) => (
                   <div
                     key={label.id}
-                    onClick={() =>
-                      dispatch(
-                        toggleLabel({
-                          userId,
-                          workspaceId,
-                          boardId,
-                          listId,
-                          cardId,
-                          label,
-                        })
-                      )
-                    }
+                  onClick={() =>
+  toggleLabelMutation.mutate({
+    cardId,
+    labelId: label.id,
+  })
+}
                     className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-slate-100"
                   >
                     <div

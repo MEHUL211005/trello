@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
 import { AlignLeft } from "lucide-react";
-import { updateCard } from "../../redux/workspaceSlice";
+import { useQueryClient } from "@tanstack/react-query"; 
+import { updateCard as updateCardApi } from "../../api/cardApi";
 
 function ModalDescription({ card, cardContext }) {
   const [description, setDescription] = useState(
@@ -9,21 +9,24 @@ function ModalDescription({ card, cardContext }) {
   );
 
   const [isEditing, setIsEditing] = useState(false);
-  const dispatch = useDispatch();
+ const queryClient = useQueryClient();
 
-  const handleSaveDescription = () => {
-    dispatch(
-      updateCard({
-        ...cardContext,
-        cardId: card.id,
-        updates: {
-          description,
-        },
-      })
-    );
+ const handleSaveDescription = async () => {
+  try {
+    await updateCardApi(card.id, {
+      description,
+    });
+
+    queryClient.invalidateQueries({
+      queryKey: ["board", cardContext.boardId],
+    });
 
     setIsEditing(false);
-  };
+
+  } catch (error) {
+    console.error("Update description error:", error);
+  }
+};
 
   useEffect(() => {
     setDescription(card.description || "");

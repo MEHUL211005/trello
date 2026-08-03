@@ -1,26 +1,32 @@
 import { useState } from "react";
-import { useDispatch } from "react-redux";
-import { addChecklist } from "../../redux/workspaceSlice";
+import { useQueryClient } from "@tanstack/react-query";
+import { createChecklist } from "../../api/checklistApi";
 
-function ChecklistPopover({cardContext, onClose}) {
+function ChecklistPopover({ cardContext, onClose }) {
+  const queryClient = useQueryClient();
+
   const [title, setTitle] = useState("Checklist");
-  const handleAddChecklist = () => {
+
+ const handleAddChecklist = async () => {
   if (!title.trim()) return;
 
-  dispatch(
-    addChecklist({
-      ...cardContext,
-      title,
-    })
-  );
+  try {
+    await createChecklist(cardContext.cardId, title);
 
-  onClose();
+    await queryClient.invalidateQueries({
+      queryKey: ["board", cardContext.boardId],
+    });
+
+    onClose();
+
+  } catch (error) {
+    console.error("Create checklist error:", error);
+  }
 };
-
-  const dispatch = useDispatch();
 
   return (
     <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
+
       <h3 className="mb-4 text-center text-sm font-semibold">
         Add Checklist
       </h3>
@@ -36,11 +42,12 @@ function ChecklistPopover({cardContext, onClose}) {
       />
 
       <button
-      onClick={handleAddChecklist}
-      className="mt-4 w-full rounded-md bg-blue-600 py-2 text-sm text-white hover:bg-blue-500"
+        onClick={handleAddChecklist}
+        className="mt-4 w-full rounded-md bg-blue-600 py-2 text-sm text-white hover:bg-blue-500"
       >
-      Add
+        Add
       </button>
+
     </div>
   );
 }

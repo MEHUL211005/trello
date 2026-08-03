@@ -2,11 +2,27 @@ import ModalActions from "./ModalActions";
 import ModalDescription from "./ModalDescription";
 import Checklist from "./Checklist";
 import ModalAttachments from "./ModalAttachments";
+import { useQuery } from "@tanstack/react-query";
+import { getCardLabels } from "../../api/labelApi";
 // import Activity from "./Activity";
 import ModalLabels from "./ModalLabels";
-import ModalDueDate from "./ModalDueDate";
+// import ModalDueDate from "./ModalDueDate";
 
 function ModalLeft({card,title,setTitle, cardContext}) {
+  const {
+  data: labelsData,
+} = useQuery({
+
+  queryKey:["cardLabels", card.id],
+
+  queryFn:()=>getCardLabels(card.id),
+
+  enabled:!!card.id,
+
+});
+
+
+const labels = labelsData?.labels || [];
       const {
     userId,
     workspaceId,
@@ -15,8 +31,8 @@ function ModalLeft({card,title,setTitle, cardContext}) {
   } = cardContext;
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6">
-    <ModalLabels labels={card.labels} />
-    <ModalDueDate dueDate={card.dueDate} />
+   <ModalLabels labels={labels} />
+    {/* <ModalDueDate dueDate={card.dueDate} card={card} cardContext={cardContext} /> */}
       <ModalActions
         userId={userId}
         workspaceId={workspaceId}
@@ -32,14 +48,14 @@ function ModalLeft({card,title,setTitle, cardContext}) {
 
     <div className="flex items-center gap-2">
       {card.members.map((member) => (
-        <div
-          key={member.id}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-sm font-semibold text-white"
-          title={member.name}
-        >
-          {member.avatar}
-        </div>
-      ))}
+  <div
+    key={member.id}
+    className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-sm font-semibold text-white"
+    title={member.name}
+  >
+    {member.name?.charAt(0).toUpperCase()}
+  </div>
+))}
     </div>
   </div>
 )}

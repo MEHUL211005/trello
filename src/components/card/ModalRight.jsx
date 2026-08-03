@@ -5,7 +5,7 @@ function ModalRight({card , cardContext}) {
   return (
     <div className="w-[380px] border-l overflow-y-auto border-slate-300 bg-slate-50 p-5">
      <Comments card={card} cardContext={cardContext} />
-     <Activity card={card} />
+     <Activity cardContext={cardContext} />
     </div>
   );
 }
