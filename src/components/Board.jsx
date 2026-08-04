@@ -20,10 +20,11 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-    closestCenter,
+  closestCenter,
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
@@ -36,56 +37,60 @@ import { reorderLists } from "../api/listApi";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
-const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
   const sensors = useSensors(
-  useSensor(PointerSensor, {
-    activationConstraint: {
-      distance: 5,
-    },
-  })
-);
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+  );
   const [search, setSearch] = useState("");
   const { user } = useSelector((state) => state.auth);
-  
-    const {
-  data: boardData,
-  isLoading,
-} = useQuery({
-  queryKey: ["board", boardId],
-  queryFn: () => getBoardById(boardId),
-  enabled: !!user && !!boardId,
-});
-const board = boardData?.board || null;
-  const lists = board?.lists || [];
+
+  const { data: boardData, isLoading } = useQuery({
+    queryKey: ["board", boardId],
+    queryFn: () => getBoardById(boardId),
+    enabled: !!user && !!boardId,
+  });
+  const board = boardData?.board || null;
+  const lists = [...(board?.lists || [])]
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map((list) => ({
+      ...list,
+      cards: [...(list.cards || [])].sort(
+        (a, b) => (a.position ?? 0) - (b.position ?? 0),
+      ),
+    }));
   console.log(
-  "CARD DATA",
-  JSON.stringify(
-    lists.map((list)=>({
-      listId:list.id,
-      name:list.name,
-      cards:list.cards?.map(card=>({
-        id:card.id,
-        title:card.title,
-        position:card.position,
-        listId:card.listId
-      }))
-    })),
-    null,
-    2
-  )
-);
+    "CARD DATA",
+    JSON.stringify(
+      lists.map((list) => ({
+        listId: list.id,
+        name: list.name,
+        cards: list.cards?.map((card) => ({
+          id: card.id,
+          title: card.title,
+          position: card.position,
+          listId: card.listId,
+        })),
+      })),
+      null,
+      2,
+    ),
+  );
 
   const [isAddingList, setIsAddingList] = useState(false);
   const [listTitle, setListTitle] = useState("");
 
   if (isLoading) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
-      Loading Board...
-    </div>
-  );
-}
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
+        Loading Board...
+      </div>
+    );
+  }
 
   if (!board) {
     return (
@@ -95,7 +100,7 @@ const board = boardData?.board || null;
     );
   }
 
-  const listIds = lists.map((list) => list.id);
+  const listIds = lists.map((list) => String(list.id));
 
   // ================= FILTERED LISTS =================
 
@@ -111,205 +116,231 @@ const board = boardData?.board || null;
   // ================= ADD LIST =================
 
   const handleAddList = async () => {
-  if (!listTitle.trim()) return;
+    if (!listTitle.trim()) return;
 
-  try {
-    await createList({
-      name: listTitle,
-      boardId,
+    try {
+      await createList({
+        name: listTitle,
+        boardId,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId],
+      });
+
+      setListTitle("");
+      setIsAddingList(false);
+    } catch (error) {
+      console.error("Create list error:", error);
+    }
+  };
+
+  const findCardList = (cardId) => {
+    return lists.find((list) =>
+      list.cards.some((card) => String(card.id) === String(cardId)),
+    );
+  };
+  // ================= DRAG END =================
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const activeType = active?.data?.current?.type;
+    const overType = over?.data?.current?.type;
+    const activeListId = active?.data?.current?.listId;
+    const overListId = over?.data?.current?.listId;
+
+    const normalizeListId = (id) => {
+      if (typeof id !== "string") return String(id);
+      return id.replace(/-cards$/, "");
+    };
+
+    const isListDrag = activeType === "list";
+
+    if (!isListDrag) {
+      const sourceList = lists.find(
+        (list) =>
+          String(list.id) ===
+          String(activeListId ?? findCardList(activeId)?.id),
+      );
+
+      if (!sourceList) return;
+
+      const destinationList = lists.find(
+        (list) =>
+          String(list.id) === String(overListId ?? normalizeListId(overId)),
+      );
+
+      if (!destinationList) return;
+
+      if (sourceList.id === destinationList.id) {
+        const cards = [...sourceList.cards].sort(
+          (a, b) => (a.position ?? 0) - (b.position ?? 0),
+        );
+
+        const oldIndex = cards.findIndex(
+          (card) => String(card.id) === activeId,
+        );
+        let newIndex;
+
+        if (overType === "card") {
+          newIndex = cards.findIndex((card) => String(card.id) === overId);
+        } else {
+          newIndex = cards.length - 1;
+        }
+
+        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+        const reorderedCards = arrayMove(cards, oldIndex, newIndex);
+
+        const updatedCards = reorderedCards.map((card, index) => ({
+          id: card.id,
+          position: index,
+        }));
+
+        queryClient.setQueryData(["board", boardId], (oldData) => {
+          if (!oldData) return oldData;
+
+          const nextLists = oldData.board.lists.map((list) => {
+            if (String(list.id) !== String(sourceList.id)) return list;
+
+            return {
+              ...list,
+              cards: reorderedCards
+                .map((card, index) => ({
+                  ...card,
+                  listId: list.id,
+                  position: index,
+                }))
+                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+            };
+          });
+
+          return {
+            ...oldData,
+            board: {
+              ...oldData.board,
+              lists: nextLists,
+            },
+          };
+        });
+
+        await reorderCards({ cards: updatedCards });
+        queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+        return;
+      }
+
+      const newPosition = destinationList.cards.length;
+      const movedCard = sourceList.cards.find(
+        (card) => String(card.id) === String(activeId),
+      );
+
+      if (!movedCard) return;
+
+      queryClient.setQueryData(["board", boardId], (oldData) => {
+        if (!oldData) return oldData;
+
+        const nextLists = oldData.board.lists.map((list) => {
+          if (String(list.id) === String(sourceList.id)) {
+            return {
+              ...list,
+              cards: list.cards
+                .filter((card) => String(card.id) !== String(activeId))
+                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                .map((card, index) => ({
+                  ...card,
+                  position: index,
+                })),
+            };
+          }
+
+          if (String(list.id) === String(destinationList.id)) {
+            const destinationCards = [
+              ...list.cards,
+              {
+                ...movedCard,
+                listId: destinationList.id,
+                position: list.cards.length,
+              },
+            ].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+            return {
+              ...list,
+              cards: destinationCards.map((card, index) => ({
+                ...card,
+                position: index,
+              })),
+            };
+          }
+
+          return list;
+        });
+
+        return {
+          ...oldData,
+          board: {
+            ...oldData.board,
+            lists: nextLists,
+          },
+        };
+      });
+
+      await updateCard(activeId, {
+        listId: destinationList.id,
+        position: newPosition,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      return;
+    }
+
+    const overList = lists.find(
+      (list) =>
+        String(list.id) === String(overListId ?? normalizeListId(overId)),
+    );
+
+    if (!overList) return;
+
+    const oldIndex = lists.findIndex((list) => String(list.id) === activeId);
+    const newIndex = lists.findIndex(
+      (list) => String(list.id) === String(overList.id),
+    );
+
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+    const updatedLists = arrayMove([...lists], oldIndex, newIndex);
+
+    const payload = updatedLists.map((list, index) => ({
+      id: list.id,
+      position: index,
+    }));
+
+    await reorderLists({
+      lists: payload,
+    });
+
+    queryClient.setQueryData(["board", boardId], (oldData) => {
+      if (!oldData) return oldData;
+
+      return {
+        ...oldData,
+        board: {
+          ...oldData.board,
+          lists: updatedLists,
+        },
+      };
     });
 
     queryClient.invalidateQueries({
       queryKey: ["board", boardId],
     });
-
-    setListTitle("");
-    setIsAddingList(false);
-
-  } catch (error) {
-    console.error("Create list error:", error);
-  }
-};
-
-const findCardList = (cardId) => {
-  return lists.find((list) =>
-    list.cards.some((card) => card.id === cardId)
-  );
-};
-  // ================= DRAG END =================
-
- const handleDragEnd = async (event) => {
-  
-  const { active, over } = event;
-  console.log("ACTIVE", active.id);
-  console.log("OVER", over?.id);
-  if (!over) return;
-
-
-  const activeId = active.id;
-  const overId = over.id;
-
-
-  // =====================
-  // CHECK CARD DRAG
-  // =====================
-
-  const sourceList = findCardList(activeId);
-
-if(sourceList){
-
- let destinationList;
-
- const cardTargetList = findCardList(overId);
-
- if(cardTargetList){
-   destinationList = cardTargetList;
- }
- else{
-   destinationList = lists.find(
-      (list)=>list.id === overId
-   );
- }
-
-
- if(!destinationList) return;
-
-
- console.log(
-   "CARD MOVE",
-   activeId,
-   sourceList.id,
-   destinationList.id
- );
-
-
- // SAME LIST DROP
- if(sourceList.id === destinationList.id){
-
- const cards = [...sourceList.cards];
-
- const oldIndex = cards.findIndex(
-   (card)=>card.id === activeId
- );
-
- const newIndex = cards.findIndex(
-   (card)=>card.id === overId
- );
-
-
- if(oldIndex === -1 || newIndex === -1) return;
-
-
- const [movedCard] = cards.splice(oldIndex,1);
-
- cards.splice(newIndex,0,movedCard);
-
-
- const updatedCards = cards.map(
-   (card,index)=>({
-     id:card.id,
-     position:index
-   })
- );
-
-
- await reorderCards({
-   cards:updatedCards
- });
-
-
- queryClient.invalidateQueries({
-   queryKey:["board",boardId],
- });
-
-
- return;
-}
-
-
-const newPosition = destinationList.cards.length;
-
-
-await updateCard(activeId,{
-   listId: destinationList.id,
-   position: newPosition,
-});
-
-
- queryClient.invalidateQueries({
-   queryKey:["board", boardId],
- });
-
-
- return;
-}
-
-
-
-  // =====================
-// LIST DRAG
-// =====================
-
-const oldIndex = lists.findIndex(
-  (list) => list.id === activeId
-);
-
-const newIndex = lists.findIndex(
-  (list) => list.id === overId
-);
-
-if (oldIndex === -1 || newIndex === -1) return;
-
-
-// frontend reorder
-
-const updatedLists = [...lists];
-
-const [movedList] = updatedLists.splice(oldIndex,1);
-
-updatedLists.splice(newIndex,0,movedList);
-
-
-// backend data
-
-const payload = updatedLists.map((list,index)=>({
-  id:list.id,
-  position:index,
-}));
-
-console.log("LIST REORDER DATA",payload);
-
-
-// API call
-
-await reorderLists({
-  lists: payload,
-});
-
-console.log("AFTER REORDER", updatedLists);
-
-queryClient.setQueryData(
-  ["board", boardId],
-  (oldData) => {
-    if (!oldData) return oldData;
-
-    return {
-      ...oldData,
-      board: {
-        ...oldData.board,
-        lists: updatedLists,
-      },
-    };
-  }
-);
-
-queryClient.invalidateQueries({
-  queryKey:["board",boardId],
-});
-};
-// console.log("LISTS DATA", lists);
+  };
   return (
-<div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950">
       <Navbar
         search={search}
         setSearch={setSearch}
@@ -371,19 +402,19 @@ queryClient.invalidateQueries({
       {/* BOARD */}
 
       <DndContext
-  sensors={sensors}
-    collisionDetection={closestCenter}
-  onDragEnd={handleDragEnd}
->
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
         <SortableContext
           items={listIds}
           strategy={horizontalListSortingStrategy}
         >
           <div className="flex-1 overflow-x-auto px-3 sm:px-6 py-4 sm:py-6">
             <div className="flex min-w-max items-start gap-3 sm:gap-6">
-       {lists.map((list) => (
-  <List key={list.id} list={list} />
-))}
+              {filteredLists.map((list) => (
+                <List key={list.id} list={list} />
+              ))}
 
               {/* ADD LIST */}
 

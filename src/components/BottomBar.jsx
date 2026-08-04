@@ -1,15 +1,9 @@
-import {
-  Inbox,
-  CalendarDays,
-  LayoutGrid,
-  ArrowRightLeft,
-} from "lucide-react";
+import { Inbox, CalendarDays, LayoutGrid, ArrowRightLeft } from "lucide-react";
 
 const BottomBar = () => {
   return (
     <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
       <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2 py-2 shadow-2xl">
-
         {/* Inbox */}
         <button className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200">
           <Inbox size={18} />
@@ -33,7 +27,6 @@ const BottomBar = () => {
           <ArrowRightLeft size={18} />
           <span>Switch Boards</span>
         </button>
-
       </div>
     </div>
   );
