@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../redux/authSlice";
 import { useNavigate } from "react-router-dom";
-import { FaUserCircle } from "react-icons/fa";
+import { FaUserCircle, FaSignOutAlt } from "react-icons/fa";
 
 const ProfileMenu = () => {
   const [open, setOpen] = useState(false);
@@ -23,11 +24,33 @@ const ProfileMenu = () => {
       }
     };
 
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setShowConfirm(false);
+      }
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = showConfirm ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showConfirm]);
+
+  const closeConfirmModal = () => {
+    setShowConfirm(false);
+  };
 
   // ---------------- LOGOUT ----------------
   const handleLogout = () => {
@@ -41,7 +64,6 @@ const ProfileMenu = () => {
 
   return (
     <div className="relative" ref={menuRef}>
-
       {/* ICON */}
       <button
         onClick={() => setOpen((prev) => !prev)}
@@ -53,7 +75,6 @@ const ProfileMenu = () => {
       {/* DROPDOWN */}
       {open && (
         <div className="absolute right-0 mt-2 w-44 rounded-xl bg-slate-900 border border-slate-700 shadow-lg overflow-hidden z-[1000]">
-
           {/* USER INFO */}
           <div className="px-3 py-2 text-sm text-slate-300 border-b border-slate-700">
             👤 {user.name}
@@ -69,45 +90,53 @@ const ProfileMenu = () => {
           >
             Logout
           </button>
-
         </div>
       )}
 
-      {/* ---------------- CONFIRM MODAL ---------------- */}
-      {showConfirm && (
-  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      {showConfirm &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 px-4 backdrop-blur-sm"
+            onClick={closeConfirmModal}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl shadow-slate-950/70"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/15 text-red-400">
+                  <FaSignOutAlt size={20} />
+                </div>
 
-    <div className="w-[90%] max-w-sm rounded-xl bg-slate-900 border border-slate-700 p-6 shadow-2xl">
+                <div>
+                  <h2 className="text-xl font-semibold text-white">
+                    Confirm logout
+                  </h2>
+                  <p className="text-sm text-slate-400">
+                    Are you sure you want to sign out of your account?
+                  </p>
+                </div>
+              </div>
 
-     
-      <h2 className="text-xl font-semibold text-white">
-        LOG OUT
-      </h2>
-      <p className="mt-2 text-sm text-slate-400">
-        Are you sure you want to logout from your account?
-      </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={closeConfirmModal}
+                  className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
 
-      <div className="mt-6 flex justify-end gap-3">
-
-        <button
-          onClick={() => setShowConfirm(false)}
-          className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white cursor-pointer"
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white cursor-pointer"
-        >
-          Logout
-        </button>
-
-      </div>
-    </div>
-
-  </div>
-)}
+                <button
+                  onClick={handleLogout}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

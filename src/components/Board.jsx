@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import List from "./List";
 import { useSelector } from "react-redux";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,7 +31,7 @@ import {
 import Navbar from "./Navbar";
 import BottomBar from "./BottomBar";
 import { createList } from "../api/listApi";
-import { updateCard } from "../api/cardApi";
+import { updateCard, searchCards } from "../api/cardApi";
 import { reorderCards } from "../api/cardApi";
 import { reorderLists } from "../api/listApi";
 
@@ -47,12 +47,29 @@ const Board = () => {
     }),
   );
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const { user } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const searchQuery = debouncedSearch;
 
   const { data: boardData, isLoading } = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => getBoardById(boardId),
     enabled: !!user && !!boardId,
+  });
+
+  const { data: searchData } = useQuery({
+    queryKey: ["cardSearch", searchQuery],
+    queryFn: () => searchCards(searchQuery),
+    enabled: !!user && searchQuery.length > 0,
   });
   const board = boardData?.board || null;
   const lists = [...(board?.lists || [])]
@@ -102,16 +119,30 @@ const Board = () => {
 
   const listIds = lists.map((list) => String(list.id));
 
+  const searchResultCards = Array.isArray(searchData?.cards)
+    ? searchData.cards
+    : Array.isArray(searchData?.results)
+    ? searchData.results
+    : Array.isArray(searchData?.data)
+    ? searchData.data
+    : [];
+
+  const matchingCardIds = new Set(
+    searchResultCards.map((card) => String(card.id)),
+  );
+
   // ================= FILTERED LISTS =================
 
-  const filteredLists = lists
-    .map((list) => ({
-      ...list,
-      cards: list.cards.filter((card) =>
-        card.title.toLowerCase().includes(search.toLowerCase()),
-      ),
-    }))
-    .filter((list) => search.trim() === "" || list.cards.length > 0);
+  const filteredLists = searchQuery
+    ? lists
+        .map((list) => ({
+          ...list,
+          cards: list.cards.filter((card) =>
+            matchingCardIds.has(String(card.id)),
+          ),
+        }))
+        .filter((list) => list.cards.length > 0)
+    : lists;
 
   // ================= ADD LIST =================
 

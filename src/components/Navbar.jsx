@@ -35,7 +35,7 @@ const Navbar = ({
       <div className="h-14 flex items-center justify-between px-3 sm:px-6">
 
         {/* LEFT SECTION */}
-        <div className="flex items-center gap-2 min-w-[180px]">
+        <div className="flex items-center gap-2 min-w-45">
           <button
             className={`cursor-pointer p-2 rounded ${
               dark
