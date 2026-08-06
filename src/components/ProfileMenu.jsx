@@ -1,3 +1,4 @@
+import axiosInstance from "../api/axios";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -53,12 +54,18 @@ const ProfileMenu = () => {
   };
 
   // ---------------- LOGOUT ----------------
-  const handleLogout = () => {
+const handleLogout = async () => {
+  try {
+    await axiosInstance.post("/auth/logout");
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
     dispatch(logout());
     setShowConfirm(false);
     setOpen(false);
     navigate("/login");
-  };
+  }
+};
 
   if (!user) return null;
 

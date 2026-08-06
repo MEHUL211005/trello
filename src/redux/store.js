@@ -12,11 +12,9 @@ const rootReducer = combineReducers({
 
 // ONLY persist users & workspace indirectly via auth
 const persistConfig = {
-  key: "root",
+  key: 'root',
   storage,
-
-  //  DO NOT fully ignore auth
-  whitelist: ["auth"],
+  blacklist: ['auth'],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

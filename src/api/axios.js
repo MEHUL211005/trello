@@ -1,34 +1,102 @@
 import axios from "axios";
+import { store } from "../redux/store";
+import { setCredentials, logout } from "../redux/authSlice";
 
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  headers:{
-    "Content-Type":"application/json"
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
+});
+
+// Attach access token
+axiosInstance.interceptors.request.use((config) => {
+  const state = store.getState();
+  const token = state.auth.token;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+
+  return config;
 });
 
+let isRefreshing = false;
+let failedQueue = [];
 
-axiosInstance.interceptors.request.use(
-(config)=>{
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
 
- const persist = JSON.parse(
-   localStorage.getItem("persist:root")
- );
+  failedQueue = [];
+};
 
- if(persist){
+// Auto refresh on 401
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-   const auth = JSON.parse(persist.auth);
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return axiosInstance(originalRequest);
+        });
+      }
 
-   if(auth.token){
-     config.headers.Authorization =
-     `Bearer ${auth.token}`;
-   }
+      originalRequest._retry = true;
+      isRefreshing = true;
 
- }
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
 
- return config;
+        const newToken = response.data.accessToken;
 
-});
+        const state = store.getState();
 
+        store.dispatch(
+          setCredentials({
+            user: state.auth.user,
+            token: newToken,
+          })
+        );
+
+        processQueue(null, newToken);
+
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+
+        return axiosInstance(originalRequest);
+
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+
+        store.dispatch(logout());
+
+        return Promise.reject(refreshError);
+
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default axiosInstance;
