@@ -41,3 +41,10 @@ export const getBoardById = async (id) => {
   const res = await api.get(`/boards/single/${id}`);
   return res.data;
 };
+export const toggleStarBoard = async (boardId) => {
+  const response = await api.patch(
+    `/boards/${boardId}/star`
+  );
+
+  return response.data;
+};

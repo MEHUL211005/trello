@@ -34,6 +34,9 @@ import { createList } from "../api/listApi";
 import { updateCard, searchCards } from "../api/cardApi";
 import { reorderCards } from "../api/cardApi";
 import { reorderLists } from "../api/listApi";
+import { updateBoard } from "../api/boardApi";
+import BoardViewsDropdown from "./BoardViewsDropdown";
+import { toggleStarBoard } from "../api/boardApi";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
@@ -49,7 +52,8 @@ const Board = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { user } = useSelector((state) => state.auth);
-
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [title, setTitle] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search.trim());
@@ -72,6 +76,11 @@ const Board = () => {
     enabled: !!user && searchQuery.length > 0,
   });
   const board = boardData?.board || null;
+  useEffect(() => {
+    if (board?.name) {
+      setTitle(board.name);
+    }
+  }, [board]);
   const lists = [...(board?.lists || [])]
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
     .map((list) => ({
@@ -144,6 +153,79 @@ const Board = () => {
         .filter((list) => list.cards.length > 0)
     : lists;
 
+  const saveBoardTitle = async () => {
+    const trimmed = title.trim();
+
+    if (!trimmed || trimmed === board.name) {
+      setTitle(board.name);
+      setEditingTitle(false);
+      return;
+    }
+
+    try {
+      await updateBoard(board.id, {
+        name: trimmed,
+        background: board.background,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId],
+      });
+    } catch (error) {
+      setTitle(board.name);
+    } finally {
+      setEditingTitle(false);
+    }
+  };
+  const handleStarClick = async () => {
+    try {
+      const normalizedBoardId = String(board.id);
+
+      queryClient.setQueryData(["board", normalizedBoardId], (oldData) => {
+        if (!oldData) return oldData;
+
+        return {
+          ...oldData,
+          board: {
+            ...oldData.board,
+            isStarred: !oldData.board.isStarred,
+          },
+        };
+      });
+
+      queryClient.setQueryData(["boards", workspaceId], (oldData) => {
+        if (!oldData || !Array.isArray(oldData.boards)) return oldData;
+
+        return {
+          ...oldData,
+          boards: oldData.boards.map((item) =>
+            String(item.id) === normalizedBoardId
+              ? { ...item, isStarred: !item.isStarred }
+              : item,
+          ),
+        };
+      });
+
+      await toggleStarBoard(board.id);
+
+      queryClient.invalidateQueries({
+        queryKey: ["board", normalizedBoardId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["boards", workspaceId],
+      });
+    } catch (error) {
+      console.error("Star update error:", error);
+
+      const normalizedBoardId = String(board.id);
+      queryClient.invalidateQueries({
+        queryKey: ["board", normalizedBoardId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["boards", workspaceId],
+      });
+    }
+  };
   // ================= ADD LIST =================
 
   const handleAddList = async () => {
@@ -379,46 +461,73 @@ const Board = () => {
         className="bg-slate-800/80 border-white/10 backdrop-blur-md text-white"
         dark
       />
-      <div className="flex items-center px-4 py-2 bg-slate-700 backdrop-blur-sm border-b border-white/10 text-slate-100">
+      <div className="relative z-20 flex items-center px-4 py-2 bg-slate-700 backdrop-blur-sm border-b border-white/10 text-slate-100 overflow-visible">
+        {" "}
         {/* Left */}
         <div className="flex items-center gap-3 shrink-0">
-          <h1 className="text-lg  font-semibold whitespace-nowrap">
-            {board.name}
-          </h1>
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={saveBoardTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  saveBoardTitle();
+                }
 
-          <button className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-white/10 transition cursor-pointer text-slate-100">
-            <Eye size={16} />
-          </button>
+                if (e.key === "Escape") {
+                  setTitle(board.name);
+                  setEditingTitle(false);
+                }
+              }}
+              className="rounded-md bg-white/10 px-2 py-1 text-lg font-semibold text-white outline-none ring-2 ring-sky-400"
+            />
+          ) : (
+            <button
+              onClick={() => setEditingTitle(true)}
+              className="rounded-md px-2 py-1 text-lg font-semibold whitespace-nowrap hover:bg-white/10 transition cursor-pointer"
+            >
+              {board.name}
+            </button>
+          )}
+
+          <BoardViewsDropdown />
         </div>
-
         {/* Spacer */}
         <div className="flex-1" />
-
         {/* Right */}
         <div className="flex items-center gap-1">
           <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
             <UserRound size={16} />
           </button>
 
-          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
+          {/* <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
             <Plug size={16} />
           </button>
 
           <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
             <Bot size={16} />
-          </button>
+          </button> */}
 
           <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
             <Filter size={16} />
           </button>
 
-          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
-            <Star size={16} />
+          <button
+            onClick={handleStarClick}
+            className="p-2 rounded-md hover:bg-white/10 cursor-pointer"
+          >
+            <Star
+              size={16}
+              fill={board.isStarred ? "currentColor" : "none"}
+              className={board.isStarred ? "text-yellow-400" : ""}
+            />
           </button>
 
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
+          {/* <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
             <Lock size={16} />
-          </button>
+          </button> */}
 
           <button className="flex items-center gap-1 bg-white text-slate-900 rounded-md px-3 py-1.5 hover:bg-slate-200 cursor-pointer">
             <Share2 size={15} />

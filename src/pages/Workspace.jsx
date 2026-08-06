@@ -10,6 +10,7 @@ import {
   updateBoard,
   deleteBoard,
   searchBoards,
+  toggleStarBoard,
 } from "../api/boardApi";
 import { getWorkspaceById } from "../api/workspaceApi";
 import { FaEdit, FaTrash, FaFolderOpen, FaRegStar } from "react-icons/fa";
@@ -72,6 +73,9 @@ const Workspace = () => {
   });
 
   const boards = data?.boards || [];
+  const starredBoards = boards.filter(
+  (board) => board.isStarred
+);
 
   const searchQuery = debouncedSearch;
 
@@ -157,6 +161,54 @@ const Workspace = () => {
     deleteMutation.mutate(deleteBoardId);
     setDeleteBoardId(null);
   };
+  const handleStarClick = async (e, boardId) => {
+    e.stopPropagation();
+    const normalizedBoardId = String(boardId);
+
+    try {
+      queryClient.setQueryData(["boards", workspaceId], (oldData) => {
+        if (!oldData || !Array.isArray(oldData.boards)) return oldData;
+
+        return {
+          ...oldData,
+          boards: oldData.boards.map((item) =>
+            String(item.id) === normalizedBoardId
+              ? { ...item, isStarred: !item.isStarred }
+              : item,
+          ),
+        };
+      });
+
+      queryClient.setQueryData(["board", normalizedBoardId], (oldData) => {
+        if (!oldData) return oldData;
+
+        return {
+          ...oldData,
+          board: {
+            ...oldData.board,
+            isStarred: !oldData.board.isStarred,
+          },
+        };
+      });
+
+      await toggleStarBoard(boardId);
+
+      queryClient.invalidateQueries({
+        queryKey: ["boards", workspaceId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["board", normalizedBoardId],
+      });
+    } catch (error) {
+      console.error("Star update error:", error);
+      queryClient.invalidateQueries({
+        queryKey: ["boards", workspaceId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["board", normalizedBoardId],
+      });
+    }
+  };
   // ==========================
   // CHECKS
   // ==========================
@@ -218,20 +270,109 @@ const Workspace = () => {
               </div>
             </div>
           </div>
-          <div className="mt-20 border-t border-slate-200"></div>
-          <div className="mx-auto max-w-7xl px-6">
-            <div className="pt-4 pb-6 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                <FaFolderOpen className="text-lg text-blue-600" />
+         <div className="mt-20 border-t border-slate-200"></div>
+
+<div className="mx-auto max-w-7xl px-6">
+
+  {/* STARRED BOARDS SECTION */}
+
+  {starredBoards.length > 0 && (
+    <div className="pt-6 mb-10">
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-slate-800">
+          ⭐ Starred Boards
+        </h1>
+
+        <p className="text-sm text-slate-500">
+          {starredBoards.length} starred boards
+        </p>
+      </div>
+
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        {starredBoards.map((board, index) => (
+          <div
+            key={board.id}
+            onClick={() =>
+              navigate(`/workspace/${workspaceId}/board/${board.id}`)
+            }
+            className="group relative overflow-hidden rounded-xl bg-white border border-gray-200 hover:shadow-lg transition-all duration-200 cursor-pointer"
+          >
+
+            <img
+              src={covers[index % covers.length]}
+              alt={board.name}
+              className="h-24 w-full object-cover"
+            />
+
+
+            <div className="p-3">
+
+              <h2 className="text-lg font-semibold">
+                {board.name}
+              </h2>
+
+
+              <p className="mt-1 text-xs text-gray-500">
+                {board.lists?.length || 0} Lists
+              </p>
+
+
+              <div className="absolute right-3 top-3 hidden group-hover:flex">
+
+                <button
+                  onClick={(e) => handleStarClick(e, board.id)}
+                  className="rounded-md bg-white p-2 shadow"
+                >
+
+                  <FaRegStar
+                    size={14}
+                    className="text-yellow-400 fill-yellow-400"
+                  />
+
+                </button>
+
               </div>
 
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-800">
-                  Your Boards
-                </h1>
-                <p className="text-sm text-slate-500">{boards.length} boards</p>
-              </div>
             </div>
+
+          </div>
+        ))}
+
+      </div>
+
+    </div>
+  )}
+
+
+
+  {/* YOUR BOARDS HEADER */}
+
+  <div className="pt-4 pb-6 flex items-center gap-3">
+
+    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+
+      <FaFolderOpen className="text-lg text-blue-600" />
+
+    </div>
+
+
+    <div>
+
+      <h1 className="text-2xl font-semibold text-slate-800">
+        Your Boards
+      </h1>
+
+
+      <p className="text-sm text-slate-500">
+        {boards.length} boards
+      </p>
+
+    </div>
+
+  </div>
 
             {isSearching && (
               <div className="mb-4 text-sm text-sky-700">
@@ -300,10 +441,17 @@ const Workspace = () => {
 
                     <div className="absolute right-3 top-3 hidden gap-2 group-hover:flex">
                       <button
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => handleStarClick(e, board.id)}
                         className="rounded-md bg-white p-2 shadow"
                       >
-                        <FaRegStar size={14} />
+                        <FaRegStar
+                          size={14}
+                          className={
+                            board.isStarred
+                              ? "text-yellow-400 fill-yellow-400"
+                              : "text-slate-500"
+                          }
+                        />
                       </button>
 
                       <button
