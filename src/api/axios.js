@@ -24,7 +24,6 @@ axiosInstance.interceptors.request.use((config) => {
 
 let isRefreshing = false;
 let failedQueue = [];
-
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
@@ -43,10 +42,7 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry
-    ) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -63,7 +59,7 @@ axiosInstance.interceptors.response.use(
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/auth/refresh`,
           {},
-          { withCredentials: true }
+          { withCredentials: true },
         );
 
         const newToken = response.data.accessToken;
@@ -74,7 +70,7 @@ axiosInstance.interceptors.response.use(
           setCredentials({
             user: state.auth.user,
             token: newToken,
-          })
+          }),
         );
 
         processQueue(null, newToken);
@@ -82,21 +78,19 @@ axiosInstance.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
 
         return axiosInstance(originalRequest);
-
       } catch (refreshError) {
         processQueue(refreshError, null);
 
         store.dispatch(logout());
 
         return Promise.reject(refreshError);
-
       } finally {
         isRefreshing = false;
       }
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosInstance;

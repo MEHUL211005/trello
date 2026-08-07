@@ -29,19 +29,27 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
       queryClient.invalidateQueries({
         queryKey: ["board", cardContext.boardId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["board", cardContext.boardId, "filters"],
+      });
     } catch (error) {
       console.log(error);
     }
   };
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({
-      id: card.id,
-      data: {
-        type: "card",
-        cardId: card.id,
-        listId: card.listId,
-      },
-    });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({
+    id: card.id,
+    data: {
+      type: "card",
+      cardId: card.id,
+      listId: card.listId,
+    },
+  });
   const { data: labelsData } = useQuery({
     queryKey: ["cardLabels", card.id],
 

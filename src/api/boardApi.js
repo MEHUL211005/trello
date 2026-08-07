@@ -48,3 +48,20 @@ export const toggleStarBoard = async (boardId) => {
 
   return response.data;
 };
+export const filterBoardCards = async (boardId, filters) => {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((v) => params.append(key, v));
+    } else if (value) {
+      params.append(key, value);
+    }
+  });
+
+  const response = await api.get(
+    `/boards/${boardId}/filter?${params.toString()}`
+  );
+
+  return response.data;
+};

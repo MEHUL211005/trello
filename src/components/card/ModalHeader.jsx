@@ -1,54 +1,41 @@
-import {
-  X,
-  SquareKanban,
-  Circle,
-  CheckCircle2,
-} from "lucide-react";
+import { X, SquareKanban, Circle, CheckCircle2 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
 import { toggleCardCompletedApi } from "../../api/cardApi";
-function ModalHeader({
-  card,
-  list,
-  title,
-  setTitle,
-  onClose,
-  cardContext,
-}) {
-const queryClient = useQueryClient();
+function ModalHeader({ card, list, title, setTitle, onClose, cardContext }) {
+  const queryClient = useQueryClient();
 
-const handleToggleComplete = async () => {
-  try {
+  const handleToggleComplete = async () => {
+    try {
+      await toggleCardCompletedApi(card.id);
 
-    await toggleCardCompletedApi(card.id);
-
-    queryClient.invalidateQueries({
-      queryKey:["board", cardContext.boardId],
-    });
-
-  } catch(error) {
-
-    console.log(error);
-
-  }
-};
+      queryClient.invalidateQueries({
+        queryKey: ["board", cardContext.boardId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["board", cardContext.boardId, "filters"],
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
     <>
       {/* Cover */}
-     {card.coverImage && (
-  <div className="max-h-[220px] overflow-hidden bg-slate-100 flex items-center justify-center">
-    <img
-      src={
-        card.coverImage.startsWith("http")
-          ? card.coverImage
-          : `http://localhost:5000${card.coverImage}`
-      }
-      alt={card.title}
-      className="max-h-[220px] w-auto object-contain"
-    />
-  </div>
-)}
+      {card.coverImage && (
+        <div className="max-h-[220px] overflow-hidden bg-slate-100 flex items-center justify-center">
+          <img
+            src={
+              card.coverImage.startsWith("http")
+                ? card.coverImage
+                : `http://localhost:5000${card.coverImage}`
+            }
+            alt={card.title}
+            className="max-h-[220px] w-auto object-contain"
+          />
+        </div>
+      )}
 
       {/* Header */}
       <div
@@ -66,7 +53,7 @@ const handleToggleComplete = async () => {
         <div className="flex flex-1 gap-4">
           {/* Complete / Incomplete */}
           <button
-  onClick={handleToggleComplete}
+            onClick={handleToggleComplete}
             className="
               mt-1
               flex
@@ -82,10 +69,7 @@ const handleToggleComplete = async () => {
             "
           >
             {card.isCompleted ? (
-              <CheckCircle2
-                size={24}
-                className="text-green-600"
-              />
+              <CheckCircle2 size={24} className="text-green-600" />
             ) : (
               <Circle
                 size={24}
@@ -107,10 +91,7 @@ const handleToggleComplete = async () => {
               bg-slate-100
             "
           >
-            <SquareKanban
-              size={20}
-              className="text-slate-600"
-            />
+            <SquareKanban size={20} className="text-slate-600" />
           </div>
 
           {/* Title */}
@@ -128,11 +109,7 @@ const handleToggleComplete = async () => {
                 font-bold
                 outline-none
                 placeholder:text-slate-400
-                ${
-                  card.isCompleted
-                    ? "text-slate-500"
-                    : "text-slate-800"
-                }
+                ${card.isCompleted ? "text-slate-500" : "text-slate-800"}
               `}
             />
 
@@ -144,9 +121,7 @@ const handleToggleComplete = async () => {
               "
             >
               in list{" "}
-              <span className="font-semibold text-slate-700">
-                {list.title}
-              </span>
+              <span className="font-semibold text-slate-700">{list.title}</span>
             </p>
           </div>
         </div>

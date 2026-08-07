@@ -9,7 +9,6 @@ import {
   UserRound,
   Plug,
   Bot,
-  Filter,
   Star,
   Lock,
   Share2,
@@ -37,6 +36,8 @@ import { reorderLists } from "../api/listApi";
 import { updateBoard } from "../api/boardApi";
 import BoardViewsDropdown from "./BoardViewsDropdown";
 import { toggleStarBoard } from "../api/boardApi";
+import BoardFilterDropdown from "./BoardFilterDropdown";
+import { filterBoardCards } from "../api/boardApi";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
@@ -54,6 +55,16 @@ const Board = () => {
   const { user } = useSelector((state) => state.auth);
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
+ const [filters, setFilters] = useState({
+  keyword:"",
+  completed: false,
+  incomplete: false,
+  overdue: false,
+  nextWeek: false,
+  nextMonth: false,
+  labels: [],
+});
+const [debouncedKeyword, setDebouncedKeyword] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search.trim());
@@ -61,7 +72,13 @@ const Board = () => {
 
     return () => clearTimeout(timer);
   }, [search]);
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedKeyword(filters.keyword || "");
+  }, 400);
 
+  return () => clearTimeout(timer);
+}, [filters.keyword]);
   const searchQuery = debouncedSearch;
 
   const { data: boardData, isLoading } = useQuery({
@@ -75,7 +92,27 @@ const Board = () => {
     queryFn: () => searchCards(searchQuery),
     enabled: !!user && searchQuery.length > 0,
   });
-  const board = boardData?.board || null;
+  // ================= FILTER QUERY =================
+const hasActiveFilters =
+  !!debouncedKeyword.trim() ||
+  filters.completed ||
+  filters.incomplete ||
+  filters.overdue ||
+  filters.nextWeek ||
+  filters.nextMonth ||
+  filters.labels.length > 0;
+
+const { data: filteredBoardData } = useQuery({
+  queryKey: ["boardFilters", boardId, filters],
+  queryFn: () => filterBoardCards(boardId, filters),
+  enabled: !!user && !!boardId && hasActiveFilters,
+  placeholderData: (previousData) => previousData,
+});
+  // ================= BOARD SOURCE =================
+
+const board = hasActiveFilters
+  ? filteredBoardData?.board || null
+  : boardData?.board || null;
   useEffect(() => {
     if (board?.name) {
       setTitle(board.name);
@@ -89,6 +126,16 @@ const Board = () => {
         (a, b) => (a.position ?? 0) - (b.position ?? 0),
       ),
     }));
+   const availableLabels = Array.from(
+  new Map(
+    (boardData?.board?.lists || [])
+      .flatMap((list) => list.cards || [])
+      .flatMap((card) => card.Labels || [])
+      .map((label) => [label.id, label])
+  ).values()
+);
+    // console.log(board?.lists?.[0]?.cards?.[0]);
+    // console.log(board?.lists?.flatMap(l => l.cards).flatMap(c => c.Labels));
   console.log(
     "CARD DATA",
     JSON.stringify(
@@ -226,6 +273,7 @@ const Board = () => {
       });
     }
   };
+
   // ================= ADD LIST =================
 
   const handleAddList = async () => {
@@ -239,6 +287,9 @@ const Board = () => {
 
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId, "filters"],
       });
 
       setListTitle("");
@@ -344,6 +395,9 @@ const Board = () => {
 
         await reorderCards({ cards: updatedCards });
         queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+        queryClient.invalidateQueries({
+          queryKey: ["board", boardId, "filters"],
+        });
         return;
       }
 
@@ -408,6 +462,9 @@ const Board = () => {
       });
 
       queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId, "filters"],
+      });
       return;
     }
 
@@ -510,10 +567,13 @@ const Board = () => {
             <Bot size={16} />
           </button> */}
 
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
-            <Filter size={16} />
-          </button>
+          <BoardFilterDropdown filters={filters} setFilters={setFilters}  availableLabels={availableLabels}/>
 
+          {hasActiveFilters && (
+            <span className="rounded-full bg-blue-500/20 px-2 py-1 text-xs text-blue-200">
+              {Object.values(filters).filter(Boolean).length} active
+            </span>
+          )}
           <button
             onClick={handleStarClick}
             className="p-2 rounded-md hover:bg-white/10 cursor-pointer"
