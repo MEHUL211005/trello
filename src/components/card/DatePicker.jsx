@@ -2,84 +2,51 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateDueDate } from "../../api/cardApi";
 
-
 function DatePicker({ cardContext, onClose }) {
-
   const [date, setDate] = useState("");
 
   const queryClient = useQueryClient();
 
-
-
   const updateDueDateMutation = useMutation({
-
-    mutationFn: ({ cardId, dueDate }) =>
-      updateDueDate(cardId, dueDate),
-
+    mutationFn: ({ cardId, dueDate }) => updateDueDate(cardId, dueDate),
 
     onSuccess: () => {
-
       queryClient.invalidateQueries({
         queryKey: ["board", cardContext.boardId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["board", cardContext.boardId, "filters"],
+      });
 
       onClose();
-
     },
 
-    onError:(error)=>{
-
-      console.log(
-        "Due date update error:",
-        error
-      );
-
-    }
-
+    onError: (error) => {
+      console.log("Due date update error:", error);
+    },
   });
 
-
-
-
   const handleSave = () => {
-
-    if(!date) return;
-
+    if (!date) return;
 
     updateDueDateMutation.mutate({
-
       cardId: cardContext.cardId,
 
-      dueDate: date
-
+      dueDate: date,
     });
-
   };
-
-
-
 
   const handleRemove = () => {
-
-
     updateDueDateMutation.mutate({
-
       cardId: cardContext.cardId,
 
-      dueDate:null
-
+      dueDate: null,
     });
-
-
   };
 
-
-
-
-return (
-
-<div
-className="
+  return (
+    <div
+      className="
 absolute
 left-0
 top-full
@@ -93,32 +60,24 @@ bg-white
 p-4
 shadow-xl
 "
->
-
-
-<h3 className="
+    >
+      <h3
+        className="
 mb-4
 text-center
 text-sm
 font-semibold
 text-slate-800
-">
+"
+      >
+        Due Date
+      </h3>
 
-Due Date
-
-</h3>
-
-
-
-<input
-
-type="date"
-
-value={date}
-
-onChange={(e)=>setDate(e.target.value)}
-
-className="
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="
 w-full
 rounded-md
 border
@@ -128,22 +87,13 @@ py-2
 text-sm
 outline-none
 "
+      />
 
-/>
-
-
-
-
-<div className="mt-4 flex gap-2">
-
-
-<button
-
-onClick={handleSave}
-
-disabled={updateDueDateMutation.isPending}
-
-className="
+      <div className="mt-4 flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={updateDueDateMutation.isPending}
+          className="
 flex-1
 rounded-md
 bg-blue-600
@@ -153,27 +103,13 @@ text-sm
 text-white
 hover:bg-blue-500
 "
+        >
+          {updateDueDateMutation.isPending ? "Saving..." : "Save"}
+        </button>
 
->
-
-{
-updateDueDateMutation.isPending
-?
-"Saving..."
-:
-"Save"
-}
-
-</button>
-
-
-
-
-<button
-
-onClick={handleRemove}
-
-className="
+        <button
+          onClick={handleRemove}
+          className="
 flex-1
 rounded-md
 bg-slate-200
@@ -183,24 +119,12 @@ text-sm
 text-slate-700
 hover:bg-slate-300
 "
-
->
-
-Remove
-
-</button>
-
-
-
-</div>
-
-
-
-</div>
-
-)
-
+        >
+          Remove
+        </button>
+      </div>
+    </div>
+  );
 }
-
 
 export default DatePicker;

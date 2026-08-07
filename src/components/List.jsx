@@ -75,6 +75,9 @@ function List({ list }) {
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId, "filters"],
+      });
 
       setCardTitle("");
       setCardImage(null);
@@ -92,6 +95,9 @@ function List({ list }) {
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId, "filters"],
+      });
     } catch (error) {
       console.error("Delete card error:", error);
     }
@@ -104,6 +110,9 @@ function List({ list }) {
 
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId, "filters"],
       });
 
       setShowDeleteModal(false);
@@ -124,6 +133,9 @@ function List({ list }) {
 
       queryClient.invalidateQueries({
         queryKey: ["board", boardId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["board", boardId, "filters"],
       });
     } catch (error) {
       console.error("Edit card error:", error);

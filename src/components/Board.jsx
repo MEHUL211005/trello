@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import List from "./List";
 import { useSelector } from "react-redux";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -55,16 +55,17 @@ const Board = () => {
   const { user } = useSelector((state) => state.auth);
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
- const [filters, setFilters] = useState({
-  keyword:"",
-  completed: false,
-  incomplete: false,
-  overdue: false,
-  nextWeek: false,
-  nextMonth: false,
-  labels: [],
-});
-const [debouncedKeyword, setDebouncedKeyword] = useState("");
+  const [filters, setFilters] = useState({
+    keyword: "",
+    completed: false,
+    incomplete: false,
+    overdue: false,
+    nextWeek: false,
+    nextMonth: false,
+    labels: [],
+  });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [debouncedKeyword, setDebouncedKeyword] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search.trim());
@@ -72,13 +73,13 @@ const [debouncedKeyword, setDebouncedKeyword] = useState("");
 
     return () => clearTimeout(timer);
   }, [search]);
-useEffect(() => {
-  const timer = setTimeout(() => {
-    setDebouncedKeyword(filters.keyword || "");
-  }, 400);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filters.keyword || "");
+    }, 400);
 
-  return () => clearTimeout(timer);
-}, [filters.keyword]);
+    return () => clearTimeout(timer);
+  }, [filters.keyword]);
   const searchQuery = debouncedSearch;
 
   const { data: boardData, isLoading } = useQuery({
@@ -93,31 +94,41 @@ useEffect(() => {
     enabled: !!user && searchQuery.length > 0,
   });
   // ================= FILTER QUERY =================
-const hasActiveFilters =
-  !!debouncedKeyword.trim() ||
-  filters.completed ||
-  filters.incomplete ||
-  filters.overdue ||
-  filters.nextWeek ||
-  filters.nextMonth ||
-  filters.labels.length > 0;
+  const hasActiveFilters =
+    !!debouncedKeyword.trim() ||
+    filters.completed ||
+    filters.incomplete ||
+    filters.overdue ||
+    filters.nextWeek ||
+    filters.nextMonth ||
+    filters.labels.length > 0;
 
-const { data: filteredBoardData } = useQuery({
-  queryKey: ["boardFilters", boardId, filters],
-  queryFn: () => filterBoardCards(boardId, filters),
+  const activeFilterPayload = useMemo(
+    () => ({
+      ...filters,
+      keyword: debouncedKeyword,
+    }),
+    [filters, debouncedKeyword],
+  );
+
+  
+const { data: filteredBoardData, isFetching: isFiltering } = useQuery({
+  queryKey: ['board', boardId, 'filters', activeFilterPayload],
+  queryFn: () => filterBoardCards(boardId, activeFilterPayload),
   enabled: !!user && !!boardId && hasActiveFilters,
   placeholderData: (previousData) => previousData,
 });
+
   // ================= BOARD SOURCE =================
 
-const board = hasActiveFilters
-  ? filteredBoardData?.board || null
-  : boardData?.board || null;
+  const board = boardData?.board ?? null;
+
   useEffect(() => {
     if (board?.name) {
       setTitle(board.name);
     }
   }, [board]);
+
   const lists = [...(board?.lists || [])]
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
     .map((list) => ({
@@ -126,16 +137,20 @@ const board = hasActiveFilters
         (a, b) => (a.position ?? 0) - (b.position ?? 0),
       ),
     }));
-   const availableLabels = Array.from(
-  new Map(
-    (boardData?.board?.lists || [])
-      .flatMap((list) => list.cards || [])
-      .flatMap((card) => card.Labels || [])
-      .map((label) => [label.id, label])
-  ).values()
-);
-    // console.log(board?.lists?.[0]?.cards?.[0]);
-    // console.log(board?.lists?.flatMap(l => l.cards).flatMap(c => c.Labels));
+  const availableLabels = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          (boardData?.board?.lists || [])
+            .flatMap((list) => list.cards || [])
+            .flatMap((card) => card.Labels || [])
+            .map((label) => [label.id, label]),
+        ).values(),
+      ),
+    [boardData?.board?.lists],
+  );
+  // console.log(board?.lists?.[0]?.cards?.[0]);
+  // console.log(board?.lists?.flatMap(l => l.cards).flatMap(c => c.Labels));
   console.log(
     "CARD DATA",
     JSON.stringify(
@@ -165,6 +180,14 @@ const board = hasActiveFilters
     );
   }
 
+  // if (hasActiveFilters && isFiltering && !filteredBoardData) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
+  //       Loading filtered board...
+  //     </div>
+  //   );
+  // }
+
   if (!board) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
@@ -187,18 +210,49 @@ const board = hasActiveFilters
     searchResultCards.map((card) => String(card.id)),
   );
 
-  // ================= FILTERED LISTS =================
+ // ================= FILTERED LISTS =================
 
-  const filteredLists = searchQuery
-    ? lists
-        .map((list) => ({
-          ...list,
-          cards: list.cards.filter((card) =>
-            matchingCardIds.has(String(card.id)),
-          ),
-        }))
-        .filter((list) => list.cards.length > 0)
-    : lists;
+const filteredLists = useMemo(() => {
+  let result = lists;
+
+  // Search filter
+  if (searchQuery) {
+    result = result
+      .map((list) => ({
+        ...list,
+        cards: list.cards.filter((card) =>
+          matchingCardIds.has(String(card.id)),
+        ),
+      }))
+      .filter((list) => list.cards.length > 0);
+  }
+
+  // Server filters
+  if (hasActiveFilters && filteredBoardData?.board?.lists) {
+    const allowedCardIds = new Set(
+      filteredBoardData.board.lists.flatMap((l) =>
+        l.cards.map((c) => String(c.id)),
+      ),
+    );
+
+    result = result
+      .map((list) => ({
+        ...list,
+        cards: list.cards.filter((card) =>
+          allowedCardIds.has(String(card.id)),
+        ),
+      }))
+      .filter((list) => list.cards.length > 0);
+  }
+
+  return result;
+}, [
+  lists,
+  searchQuery,
+  matchingCardIds,
+  hasActiveFilters,
+  filteredBoardData,
+]);
 
   const saveBoardTitle = async () => {
     const trimmed = title.trim();
@@ -508,6 +562,9 @@ const board = hasActiveFilters
     queryClient.invalidateQueries({
       queryKey: ["board", boardId],
     });
+    queryClient.invalidateQueries({
+      queryKey: ["board", boardId, "filters"],
+    });
   };
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950">
@@ -566,14 +623,21 @@ const board = hasActiveFilters
           <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
             <Bot size={16} />
           </button> */}
-
-          <BoardFilterDropdown filters={filters} setFilters={setFilters}  availableLabels={availableLabels}/>
-
-          {hasActiveFilters && (
+<BoardFilterDropdown
+  filters={filters}
+  setFilters={setFilters}
+  availableLabels={availableLabels}
+  open={isFilterOpen}
+  setOpen={setIsFilterOpen}
+/>
+{hasActiveFilters && isFiltering && (
+  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+)}
+          {/* {hasActiveFilters && (
             <span className="rounded-full bg-blue-500/20 px-2 py-1 text-xs text-blue-200">
               {Object.values(filters).filter(Boolean).length} active
             </span>
-          )}
+          )} */}
           <button
             onClick={handleStarClick}
             className="p-2 rounded-md hover:bg-white/10 cursor-pointer"

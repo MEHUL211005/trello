@@ -1,8 +1,13 @@
 import { Filter, Search, Check } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
-const BoardFilterDropdown = ({ filters, setFilters, availableLabels = [] }) => {
-  const [open, setOpen] = useState(false);
+const BoardFilterDropdown = ({
+  filters,
+  setFilters,
+  availableLabels = [],
+  open,
+  setOpen,
+}) => { 
   const wrapperRef = useRef(null);
 
   useEffect(() => {
