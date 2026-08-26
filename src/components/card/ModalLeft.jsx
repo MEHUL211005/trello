@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getCardLabels } from "../../api/labelApi";
 // import Activity from "./Activity";
 import ModalLabels from "./ModalLabels";
-// import ModalDueDate from "./ModalDueDate";
+import ModalDueDate from "./ModalDueDate";
 
 function ModalLeft({card,title,setTitle, cardContext}) {
   const {
@@ -32,7 +32,7 @@ const labels = labelsData?.labels || [];
   return (
     <div className="flex-1 overflow-y-auto px-8 py-6">
    <ModalLabels labels={labels} />
-    {/* <ModalDueDate dueDate={card.dueDate} card={card} cardContext={cardContext} /> */}
+    <ModalDueDate dueDate={card.dueDate} />
       <ModalActions
         userId={userId}
         workspaceId={workspaceId}
