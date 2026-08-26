@@ -1,12 +1,81 @@
-# React + Vite
+# Trello Board
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Trello-style project management board built with React. Users can organize work across boards, lists, and cards with drag-and-drop, checklists, labels, attachments, comments, and activity tracking.
 
-Currently, two official plugins are available:
+This repo is the frontend. The API lives in a separate [`trello_backend`](../trello_backend) project (Express + MySQL/Sequelize).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## Expanding the ESLint configuration
+- Workspaces and boards with member management
+- Lists and cards with drag-and-drop reordering (`@dnd-kit`)
+- Card details: descriptions, due dates, labels, checklists, attachments, and comments
+- Activity log per card/board
+- Authentication (login/signup) with protected routes
+- Board filtering and view switching
+- User feedback submission
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Tech Stack
+
+- **React 19** + **Vite**
+- **Redux Toolkit** + **redux-persist** for state management
+- **TanStack Query** for server state/data fetching
+- **React Router** for routing
+- **React Hook Form** + **Zod** for form handling and validation
+- **Tailwind CSS 4** for styling
+- **dnd-kit** for drag-and-drop
+- **Axios** for HTTP requests
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (LTS recommended)
+- The [backend API](../trello_backend) running locally (or a deployed instance)
+
+### Installation
+
+```bash
+npm install
+```
+
+### Configuration
+
+Create a `.env` file in the project root pointing to your backend API, e.g.:
+
+```
+VITE_API_URL=http://localhost:5000/api
+```
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+npm run preview
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+## Project Structure
+
+```
+src/
+├── api/          # Axios API calls per resource (board, card, list, auth, etc.)
+├── components/   # Reusable UI components (Board, List, Card, modals, popovers)
+│   └── card/     # Card detail modal sub-components
+├── layouts/       # App layout shell
+├── lib/          # Shared client setup (e.g. React Query client)
+├── pages/        # Route-level pages (Dashboard, Workspace, Login, Signup, Profile)
+├── redux/        # Redux slices and store
+├── routes/       # App route definitions
+└── validations/  # Zod schemas
+```

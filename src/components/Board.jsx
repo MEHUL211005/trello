@@ -172,30 +172,6 @@ const { data: filteredBoardData, isFetching: isFiltering } = useQuery({
   const [isAddingList, setIsAddingList] = useState(false);
   const [listTitle, setListTitle] = useState("");
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
-        Loading Board...
-      </div>
-    );
-  }
-
-  // if (hasActiveFilters && isFiltering && !filteredBoardData) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
-  //       Loading filtered board...
-  //     </div>
-  //   );
-  // }
-
-  if (!board) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
-        Board Not Found
-      </div>
-    );
-  }
-
   const listIds = lists.map((list) => String(list.id));
 
   const searchResultCards = Array.isArray(searchData?.cards)
@@ -253,6 +229,22 @@ const filteredLists = useMemo(() => {
   hasActiveFilters,
   filteredBoardData,
 ]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
+        Loading Board...
+      </div>
+    );
+  }
+
+  if (!board) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
+        Board Not Found
+      </div>
+    );
+  }
 
   const saveBoardTitle = async () => {
     const trimmed = title.trim();
