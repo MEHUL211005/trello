@@ -1,5 +1,4 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { toggleCardCompletedApi } from "../api/cardApi";
 const initialState = {
   users: {},
 };
@@ -487,6 +486,7 @@ toggleChecklistItem: (state, action) => {
 
   if (!item) return;
 
+  const wasCompleted = item.completed;
   item.completed = !item.completed;
   if (!wasCompleted) {
   addActivity(

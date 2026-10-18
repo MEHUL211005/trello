@@ -70,13 +70,11 @@ export const updateChecklist = async (checklistId, title) => {
 // DELETE CHECKLIST
 export const deleteChecklist = async (checklistId) => {
 
-  console.log("DELETE API HIT", checklistId);
 
   const res = await api.delete(
     `/checklists/${checklistId}`
   );
 
-  console.log("RESPONSE", res);
 
   return res.data;
 };

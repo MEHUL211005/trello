@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 const CreateMenuModal = ({ onClose, onCreateBoard }) => {
   return (
     <div
-      className="absolute top-full mt-2 right-0 w-72 rounded-xl bg-white border border-slate-200 shadow-xl z-[9999]"
+      className="absolute top-full mt-2 right-0 w-72 max-sm:inset-x-3 max-sm:w-auto rounded-xl bg-white border border-slate-200 shadow-xl z-[9999]"
     >
 
       <div className="flex items-center justify-between px-4 py-3 border-b">

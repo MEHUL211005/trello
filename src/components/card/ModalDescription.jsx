@@ -1,32 +1,51 @@
 import { useEffect, useState } from "react";
-import { AlignLeft } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query"; 
+import { AlignLeft, Pencil } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+
+import { useBoardPermissions } from "../../context/boardPermissions";
 import { updateCard as updateCardApi } from "../../api/cardApi";
+import { getErrorMessage } from "../../lib/validation";
+import { SectionTitle, primaryBtn, ghostBtn } from "./ui";
+
+const MAX_DESCRIPTION = 5000;
 
 function ModalDescription({ card, cardContext }) {
-  const [description, setDescription] = useState(
-    card.description || ""
-  );
+  const { canEdit } = useBoardPermissions();
+  const [description, setDescription] = useState(card.description || "");
 
   const [isEditing, setIsEditing] = useState(false);
- const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
- const handleSaveDescription = async () => {
-  try {
-    await updateCardApi(card.id, {
-      description,
-    });
+  const handleSaveDescription = async () => {
+    if (description.length > MAX_DESCRIPTION) {
+      toast.error(`Description must be ${MAX_DESCRIPTION} characters or fewer`);
+      return;
+    }
 
-    queryClient.invalidateQueries({
-      queryKey: ["board", cardContext.boardId],
-    });
+    setSaving(true);
 
-    setIsEditing(false);
+    try {
+      await updateCardApi(card.id, {
+        description,
+      });
 
-  } catch (error) {
-    console.error("Update description error:", error);
-  }
-};
+      queryClient.invalidateQueries({
+        queryKey: ["board", cardContext.boardId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["activities", cardContext.cardId],
+      });
+
+      setIsEditing(false);
+      toast.success("Description saved");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not save the description"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     setDescription(card.description || "");
@@ -34,116 +53,81 @@ function ModalDescription({ card, cardContext }) {
   }, [card]);
 
   return (
-    <section className="mt-6">
-
-      {/* Header */}
-      <div className="mb-3 flex items-center gap-3">
-        <AlignLeft
-          size={21}
-          className="text-slate-700"
-        />
-
-        <h2 className="text-base font-semibold text-slate-800">
-          Description
-        </h2>
-      </div>
-
+    <section>
+      <SectionTitle
+        icon={AlignLeft}
+        title="Description"
+        action={
+          canEdit &&
+          card.description &&
+          !isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-brand-700"
+            >
+              <Pencil size={13} />
+              Edit
+            </button>
+          )
+        }
+      />
 
       {isEditing ? (
         <>
           <textarea
             value={description}
-            onChange={(e) =>
-              setDescription(e.target.value)
-            }
-            className="
-              min-h-[140px]
-              w-full
-              resize-none
-              rounded-xl
-              border
-              border-slate-300
-              bg-white
-              p-4
-              text-sm
-              text-slate-700
-              outline-none
-              shadow-sm
-              focus:border-blue-500
-              focus:ring-2
-              focus:ring-blue-100
-            "
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                handleSaveDescription();
+              }
+            }}
+            placeholder="Add context, links, acceptance criteria..."
+            className="min-h-[150px] w-full resize-y rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
             autoFocus
           />
 
-          <div className="mt-3 flex gap-2">
-
+          <div className="mt-3 flex items-center gap-2">
             <button
               onClick={handleSaveDescription}
-              className="
-                rounded-lg
-                bg-blue-600
-                px-4
-                py-2
-                text-sm
-                font-medium
-                text-white
-                transition
-                hover:bg-blue-700
-              "
+              disabled={saving}
+              className={primaryBtn}
             >
-              Save
+              {saving ? "Saving..." : "Save"}
             </button>
-
 
             <button
               onClick={() => {
                 setDescription(card.description || "");
                 setIsEditing(false);
               }}
-              className="
-                rounded-lg
-                bg-slate-200
-                px-4
-                py-2
-                text-sm
-                font-medium
-                text-slate-700
-                transition
-                hover:bg-slate-300
-              "
+              className={ghostBtn}
             >
               Cancel
             </button>
 
+            <span className="ml-auto text-xs text-slate-400">
+              Ctrl + Enter to save
+            </span>
           </div>
         </>
       ) : (
-
         <div
-          onClick={() => setIsEditing(true)}
-          className="
-            min-h-[100px]
-            cursor-pointer
-            rounded-xl
-            bg-slate-100
-            p-4
-            text-sm
-            leading-6
-            text-slate-700
-            transition
-            hover:bg-slate-200
-          "
+          onClick={() => canEdit && setIsEditing(true)}
+          className={`min-h-[84px] ${
+            canEdit ? "cursor-pointer" : "cursor-default"
+          } whitespace-pre-wrap rounded-xl border p-4 text-sm leading-6 transition ${
+            card.description
+              ? "border-transparent bg-slate-50 text-slate-700 hover:border-slate-200 hover:bg-white"
+              : "border-dashed border-slate-300 bg-slate-50/60 text-slate-400 hover:border-brand-300 hover:bg-brand-50/50 hover:text-brand-600"
+          }`}
         >
-          {card.description || (
-            <span className="text-slate-500">
-              Add a more detailed description...
-            </span>
-          )}
+          {card.description ||
+            (canEdit
+              ? "Add a more detailed description..."
+              : "No description yet.")}
         </div>
-
       )}
-
     </section>
   );
 }

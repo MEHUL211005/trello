@@ -1,6 +1,6 @@
-# Trello Board
+# TaskSphere
 
-A Trello-style project management board built with React. Users can organize work across boards, lists, and cards with drag-and-drop, checklists, labels, attachments, comments, and activity tracking.
+**TaskSphere is a collaborative project management system.** Teams organise work across workspaces, boards, lists and cards with drag-and-drop, checklists, labels, attachments, comments and activity tracking.
 
 This repo is the frontend. The API lives in a separate [`trello_backend`](../trello_backend) project (Express + MySQL/Sequelize).
 
@@ -10,7 +10,7 @@ This repo is the frontend. The API lives in a separate [`trello_backend`](../tre
 - Lists and cards with drag-and-drop reordering (`@dnd-kit`)
 - Card details: descriptions, due dates, labels, checklists, attachments, and comments
 - Activity log per card/board
-- Authentication (login/signup) with protected routes
+- Authentication: sign up with email OTP verification, login, forgot / reset password, protected routes
 - Board filtering and view switching
 - User feedback submission
 

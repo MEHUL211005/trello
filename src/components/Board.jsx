@@ -1,127 +1,159 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import List from "./List";
 import { useSelector } from "react-redux";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getBoardById } from "../api/boardApi";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Eye,
-  UserRound,
-  Plug,
-  Bot,
+  ArrowRightLeft,
   Star,
   Lock,
+  Users,
   Share2,
-  MoreHorizontal,
 } from "lucide-react";
 import {
   DndContext,
-  PointerSensor,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
 import Navbar from "./Navbar";
-import BottomBar from "./BottomBar";
+import BoardMenu from "./BoardMenu";
+import { useTheme } from "../context/theme";
+import { useToggleStar } from "../hooks/useToggleStar";
+import { backgroundStyle } from "../lib/boardBackgrounds";
+import {
+  EMPTY_FILTERS,
+  countCards,
+  filterBoardLists,
+  hasActiveFilters,
+} from "../lib/boardFilters";
+import toast from "react-hot-toast";
+import ShareBoardModal from "./ShareBoardModal";
+import RoleBadge from "./RoleBadge";
+import {
+  BoardPermissionsProvider,
+  permissionsFor,
+} from "../context/boardPermissions";
+import { getErrorMessage } from "../lib/validation";
+import { useBoardRealtime } from "../hooks/useBoardRealtime";
+import { useBoardDnd } from "../hooks/useBoardDnd";
+import { CardOverlay, ListOverlay } from "./DragOverlays";
+import { listDndId, sameId } from "../lib/boardDnd";
 import { createList } from "../api/listApi";
-import { updateCard, searchCards } from "../api/cardApi";
-import { reorderCards } from "../api/cardApi";
-import { reorderLists } from "../api/listApi";
 import { updateBoard } from "../api/boardApi";
-import BoardViewsDropdown from "./BoardViewsDropdown";
-import { toggleStarBoard } from "../api/boardApi";
+import BoardInsights from "./BoardInsights";
+import SwitchBoardsModal from "./SwitchBoardsModal";
 import BoardFilterDropdown from "./BoardFilterDropdown";
-import { filterBoardCards } from "../api/boardApi";
 
 const Board = () => {
   const { workspaceId, boardId } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    // Mouse: drag after moving 5px. Touch: press and hold briefly, so a
+    // normal swipe still scrolls the board and the lists.
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 5,
       },
     }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 220,
+        tolerance: 8,
+      },
+    }),
   );
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const { user } = useSelector((state) => state.auth);
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
-  const [filters, setFilters] = useState({
-    keyword: "",
-    completed: false,
-    incomplete: false,
-    overdue: false,
-    nextWeek: false,
-    nextMonth: false,
-    labels: [],
-  });
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [debouncedKeyword, setDebouncedKeyword] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [search]);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedKeyword(filters.keyword || "");
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [filters.keyword]);
-  const searchQuery = debouncedSearch;
-
-  const { data: boardData, isLoading } = useQuery({
+  const [showShare, setShowShare] = useState(false);
+  const [showSwitch, setShowSwitch] = useState(false);
+  const {
+    data: boardData,
+    isLoading,
+    error: boardError,
+  } = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => getBoardById(boardId),
     enabled: !!user && !!boardId,
+    // Live updates arrive over the socket (useBoardRealtime). These are
+    // only a safety net in case the connection is down.
+    refetchInterval: 120000,
+    refetchOnWindowFocus: true,
   });
 
-  const { data: searchData } = useQuery({
-    queryKey: ["cardSearch", searchQuery],
-    queryFn: () => searchCards(searchQuery),
-    enabled: !!user && searchQuery.length > 0,
-  });
-  // ================= FILTER QUERY =================
-  const hasActiveFilters =
-    !!debouncedKeyword.trim() ||
-    filters.completed ||
-    filters.incomplete ||
-    filters.overdue ||
-    filters.nextWeek ||
-    filters.nextMonth ||
-    filters.labels.length > 0;
+  // True while a card or list is being dragged, so updates wait for the drop
+  const isDraggingRef = useRef(false);
+  const applyWaitingUpdate = useBoardRealtime(boardId, isDraggingRef);
 
-  const activeFilterPayload = useMemo(
-    () => ({
-      ...filters,
-      keyword: debouncedKeyword,
-    }),
-    [filters, debouncedKeyword],
-  );
+  // Filtering happens in the browser (see lib/boardFilters.js): instant, and
+  // the board never shows a half-filtered state while waiting for a server.
+  const deferredSearch = useDeferredValue(search);
+  const deferredFilters = useDeferredValue(filters);
+  const filtersOn = hasActiveFilters(filters) || !!search.trim();
 
-  
-const { data: filteredBoardData, isFetching: isFiltering } = useQuery({
-  queryKey: ['board', boardId, 'filters', activeFilterPayload],
-  queryFn: () => filterBoardCards(boardId, activeFilterPayload),
-  enabled: !!user && !!boardId && hasActiveFilters,
-  placeholderData: (previousData) => previousData,
-});
+  const { isDark } = useTheme();
+  const star = useToggleStar();
 
   // ================= BOARD SOURCE =================
 
   const board = boardData?.board ?? null;
+
+  // Fail closed: until the server says otherwise the user is a viewer
+  const permissions = useMemo(
+    () => permissionsFor(boardData?.role || "VIEWER"),
+    [boardData?.role],
+  );
+  const noAccess = boardError?.response?.status === 403;
+
+  const backgroundMutation = useMutation({
+    mutationFn: (background) => updateBoard(boardId, { background }),
+
+    // Show the new background immediately
+    onMutate: async (background) => {
+      await queryClient.cancelQueries({ queryKey: ["board", boardId] });
+      const previous = queryClient.getQueryData(["board", boardId]);
+
+      queryClient.setQueryData(["board", boardId], (old) =>
+        old ? { ...old, board: { ...old.board, background } } : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (error, _background, context) => {
+      queryClient.setQueryData(["board", boardId], context?.previous);
+      toast.error(getErrorMessage(error, "Could not change the background"));
+    },
+
+    // Board tiles elsewhere show the background too
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      queryClient.invalidateQueries({ queryKey: ["sharedBoards"] });
+      queryClient.invalidateQueries({ queryKey: ["starredBoards"] });
+    },
+  });
 
   useEffect(() => {
     if (board?.name) {
@@ -129,14 +161,18 @@ const { data: filteredBoardData, isFetching: isFiltering } = useQuery({
     }
   }, [board]);
 
-  const lists = [...(board?.lists || [])]
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-    .map((list) => ({
-      ...list,
-      cards: [...(list.cards || [])].sort(
-        (a, b) => (a.position ?? 0) - (b.position ?? 0),
-      ),
-    }));
+  const lists = useMemo(
+    () =>
+      [...(board?.lists || [])]
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .map((list) => ({
+          ...list,
+          cards: [...(list.cards || [])].sort(
+            (a, b) => (a.position ?? 0) - (b.position ?? 0),
+          ),
+        })),
+    [board?.lists],
+  );
   const availableLabels = useMemo(
     () =>
       Array.from(
@@ -151,84 +187,75 @@ const { data: filteredBoardData, isFetching: isFiltering } = useQuery({
   );
   // console.log(board?.lists?.[0]?.cards?.[0]);
   // console.log(board?.lists?.flatMap(l => l.cards).flatMap(c => c.Labels));
-  console.log(
-    "CARD DATA",
-    JSON.stringify(
-      lists.map((list) => ({
-        listId: list.id,
-        name: list.name,
-        cards: list.cards?.map((card) => ({
-          id: card.id,
-          title: card.title,
-          position: card.position,
-          listId: card.listId,
-        })),
-      })),
-      null,
-      2,
-    ),
-  );
 
   const [isAddingList, setIsAddingList] = useState(false);
   const [listTitle, setListTitle] = useState("");
 
-  const listIds = lists.map((list) => String(list.id));
-
-  const searchResultCards = Array.isArray(searchData?.cards)
-    ? searchData.cards
-    : Array.isArray(searchData?.results)
-    ? searchData.results
-    : Array.isArray(searchData?.data)
-    ? searchData.data
-    : [];
-
-  const matchingCardIds = new Set(
-    searchResultCards.map((card) => String(card.id)),
+  // Every list stays, only its cards are narrowed down. Columns never pop in
+  // and out, which is what made the board jump before.
+  const filteredLists = useMemo(
+    () => filterBoardLists(lists, deferredFilters, deferredSearch),
+    [lists, deferredFilters, deferredSearch],
   );
 
- // ================= FILTERED LISTS =================
+  // Cards can't be dragged while a search or filter hides some of them:
+  // the saved order would not match what is on screen.
+  const isFiltered = filtersOn;
+  const dndEnabled = permissions.canEdit && !isFiltered;
 
-const filteredLists = useMemo(() => {
-  let result = lists;
+  const dragPermissions = useMemo(
+    () => ({ ...permissions, canDrag: dndEnabled }),
+    [permissions, dndEnabled],
+  );
 
-  // Search filter
-  if (searchQuery) {
-    result = result
-      .map((list) => ({
-        ...list,
-        cards: list.cards.filter((card) =>
-          matchingCardIds.has(String(card.id)),
-        ),
-      }))
-      .filter((list) => list.cards.length > 0);
-  }
+  const {
+    displayLists,
+    activeItem,
+    collisionDetection,
+    dropAnimation,
+    handlers: dragHandlers,
+  } = useBoardDnd({
+    boardId,
+    lists: filteredLists,
+    enabled: dndEnabled,
+    isDraggingRef,
+    onSettled: applyWaitingUpdate,
+  });
 
-  // Server filters
-  if (hasActiveFilters && filteredBoardData?.board?.lists) {
-    const allowedCardIds = new Set(
-      filteredBoardData.board.lists.flatMap((l) =>
-        l.cards.map((c) => String(c.id)),
-      ),
+  const listIds = displayLists.map((list) => listDndId(list.id));
+  const draggedList =
+    activeItem?.type === "list"
+      ? displayLists.find((list) => sameId(list.id, activeItem.id))
+      : null;
+  const draggedCard =
+    activeItem?.type === "card"
+      ? displayLists
+          .flatMap((list) => list.cards)
+          .find((card) => sameId(card.id, activeItem.id))
+      : null;
+
+  if (noAccess) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-6 text-center">
+        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+          <Lock size={28} />
+        </span>
+        <h1 className="text-2xl font-extrabold text-slate-900">
+          You don't have access to this board
+        </h1>
+        <p className="max-w-md text-slate-500">
+          It may have been unshared, or the link is wrong. Ask the owner to
+          invite you again.
+        </p>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="bg-brand-gradient rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand-600/25"
+        >
+          Back to dashboard
+        </button>
+      </div>
     );
-
-    result = result
-      .map((list) => ({
-        ...list,
-        cards: list.cards.filter((card) =>
-          allowedCardIds.has(String(card.id)),
-        ),
-      }))
-      .filter((list) => list.cards.length > 0);
   }
-
-  return result;
-}, [
-  lists,
-  searchQuery,
-  matchingCardIds,
-  hasActiveFilters,
-  filteredBoardData,
-]);
 
   if (isLoading) {
     return (
@@ -241,7 +268,7 @@ const filteredLists = useMemo(() => {
   if (!board) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
-        Board Not Found
+        This board could not be found
       </div>
     );
   }
@@ -266,64 +293,21 @@ const filteredLists = useMemo(() => {
       });
     } catch (error) {
       setTitle(board.name);
+      toast.error(getErrorMessage(error, "Could not rename the board"));
     } finally {
       setEditingTitle(false);
     }
   };
-  const handleStarClick = async () => {
-    try {
-      const normalizedBoardId = String(board.id);
-
-      queryClient.setQueryData(["board", normalizedBoardId], (oldData) => {
-        if (!oldData) return oldData;
-
-        return {
-          ...oldData,
-          board: {
-            ...oldData.board,
-            isStarred: !oldData.board.isStarred,
-          },
-        };
-      });
-
-      queryClient.setQueryData(["boards", workspaceId], (oldData) => {
-        if (!oldData || !Array.isArray(oldData.boards)) return oldData;
-
-        return {
-          ...oldData,
-          boards: oldData.boards.map((item) =>
-            String(item.id) === normalizedBoardId
-              ? { ...item, isStarred: !item.isStarred }
-              : item,
-          ),
-        };
-      });
-
-      await toggleStarBoard(board.id);
-
-      queryClient.invalidateQueries({
-        queryKey: ["board", normalizedBoardId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["boards", workspaceId],
-      });
-    } catch (error) {
-      console.error("Star update error:", error);
-
-      const normalizedBoardId = String(board.id);
-      queryClient.invalidateQueries({
-        queryKey: ["board", normalizedBoardId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["boards", workspaceId],
-      });
-    }
-  };
+  const handleStarClick = () =>
+    star.mutate({ boardId: board.id, starred: !board.isStarred });
 
   // ================= ADD LIST =================
 
   const handleAddList = async () => {
-    if (!listTitle.trim()) return;
+    if (!listTitle.trim()) {
+      toast.error("Give the list a name");
+      return;
+    }
 
     try {
       await createList({
@@ -341,236 +325,27 @@ const filteredLists = useMemo(() => {
       setListTitle("");
       setIsAddingList(false);
     } catch (error) {
-      console.error("Create list error:", error);
+      toast.error(getErrorMessage(error, "Could not create the list"));
     }
   };
 
-  const findCardList = (cardId) => {
-    return lists.find((list) =>
-      list.cards.some((card) => String(card.id) === String(cardId)),
-    );
-  };
-  // ================= DRAG END =================
-
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
-
-    if (!over) return;
-
-    const activeId = String(active.id);
-    const overId = String(over.id);
-    const activeType = active?.data?.current?.type;
-    const overType = over?.data?.current?.type;
-    const activeListId = active?.data?.current?.listId;
-    const overListId = over?.data?.current?.listId;
-
-    const normalizeListId = (id) => {
-      if (typeof id !== "string") return String(id);
-      return id.replace(/-cards$/, "");
-    };
-
-    const isListDrag = activeType === "list";
-
-    if (!isListDrag) {
-      const sourceList = lists.find(
-        (list) =>
-          String(list.id) ===
-          String(activeListId ?? findCardList(activeId)?.id),
-      );
-
-      if (!sourceList) return;
-
-      const destinationList = lists.find(
-        (list) =>
-          String(list.id) === String(overListId ?? normalizeListId(overId)),
-      );
-
-      if (!destinationList) return;
-
-      if (sourceList.id === destinationList.id) {
-        const cards = [...sourceList.cards].sort(
-          (a, b) => (a.position ?? 0) - (b.position ?? 0),
-        );
-
-        const oldIndex = cards.findIndex(
-          (card) => String(card.id) === activeId,
-        );
-        let newIndex;
-
-        if (overType === "card") {
-          newIndex = cards.findIndex((card) => String(card.id) === overId);
-        } else {
-          newIndex = cards.length - 1;
-        }
-
-        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-
-        const reorderedCards = arrayMove(cards, oldIndex, newIndex);
-
-        const updatedCards = reorderedCards.map((card, index) => ({
-          id: card.id,
-          position: index,
-        }));
-
-        queryClient.setQueryData(["board", boardId], (oldData) => {
-          if (!oldData) return oldData;
-
-          const nextLists = oldData.board.lists.map((list) => {
-            if (String(list.id) !== String(sourceList.id)) return list;
-
-            return {
-              ...list,
-              cards: reorderedCards
-                .map((card, index) => ({
-                  ...card,
-                  listId: list.id,
-                  position: index,
-                }))
-                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-            };
-          });
-
-          return {
-            ...oldData,
-            board: {
-              ...oldData.board,
-              lists: nextLists,
-            },
-          };
-        });
-
-        await reorderCards({ cards: updatedCards });
-        queryClient.invalidateQueries({ queryKey: ["board", boardId] });
-        queryClient.invalidateQueries({
-          queryKey: ["board", boardId, "filters"],
-        });
-        return;
-      }
-
-      const newPosition = destinationList.cards.length;
-      const movedCard = sourceList.cards.find(
-        (card) => String(card.id) === String(activeId),
-      );
-
-      if (!movedCard) return;
-
-      queryClient.setQueryData(["board", boardId], (oldData) => {
-        if (!oldData) return oldData;
-
-        const nextLists = oldData.board.lists.map((list) => {
-          if (String(list.id) === String(sourceList.id)) {
-            return {
-              ...list,
-              cards: list.cards
-                .filter((card) => String(card.id) !== String(activeId))
-                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-                .map((card, index) => ({
-                  ...card,
-                  position: index,
-                })),
-            };
-          }
-
-          if (String(list.id) === String(destinationList.id)) {
-            const destinationCards = [
-              ...list.cards,
-              {
-                ...movedCard,
-                listId: destinationList.id,
-                position: list.cards.length,
-              },
-            ].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-
-            return {
-              ...list,
-              cards: destinationCards.map((card, index) => ({
-                ...card,
-                position: index,
-              })),
-            };
-          }
-
-          return list;
-        });
-
-        return {
-          ...oldData,
-          board: {
-            ...oldData.board,
-            lists: nextLists,
-          },
-        };
-      });
-
-      await updateCard(activeId, {
-        listId: destinationList.id,
-        position: newPosition,
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId, "filters"],
-      });
-      return;
-    }
-
-    const overList = lists.find(
-      (list) =>
-        String(list.id) === String(overListId ?? normalizeListId(overId)),
-    );
-
-    if (!overList) return;
-
-    const oldIndex = lists.findIndex((list) => String(list.id) === activeId);
-    const newIndex = lists.findIndex(
-      (list) => String(list.id) === String(overList.id),
-    );
-
-    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-
-    const updatedLists = arrayMove([...lists], oldIndex, newIndex);
-
-    const payload = updatedLists.map((list, index) => ({
-      id: list.id,
-      position: index,
-    }));
-
-    await reorderLists({
-      lists: payload,
-    });
-
-    queryClient.setQueryData(["board", boardId], (oldData) => {
-      if (!oldData) return oldData;
-
-      return {
-        ...oldData,
-        board: {
-          ...oldData.board,
-          lists: updatedLists,
-        },
-      };
-    });
-
-    queryClient.invalidateQueries({
-      queryKey: ["board", boardId],
-    });
-    queryClient.invalidateQueries({
-      queryKey: ["board", boardId, "filters"],
-    });
-  };
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950">
+    <BoardPermissionsProvider value={dragPermissions}>
+    <div
+      className="min-h-screen flex flex-col"
+      style={backgroundStyle(board.background, board.id, isDark)}
+    >
       <Navbar
         search={search}
         setSearch={setSearch}
         placeholder="Search Cards..."
-        className="bg-slate-800/80 border-white/10 backdrop-blur-md text-white"
+        className="bg-black/30 border-white/10 backdrop-blur-md text-white"
         dark
       />
-      <div className="relative z-20 flex items-center px-4 py-2 bg-slate-700 backdrop-blur-sm border-b border-white/10 text-slate-100 overflow-visible">
+      <div className="relative z-20 flex flex-wrap items-center gap-y-1 px-3 py-2 sm:px-4 bg-black/25 backdrop-blur-md border-b border-white/10 text-white overflow-visible">
         {" "}
         {/* Left */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex min-w-0 max-w-full items-center gap-1 sm:gap-3">
           {editingTitle ? (
             <input
               autoFocus
@@ -587,34 +362,45 @@ const filteredLists = useMemo(() => {
                   setEditingTitle(false);
                 }
               }}
-              className="rounded-md bg-white/10 px-2 py-1 text-lg font-semibold text-white outline-none ring-2 ring-sky-400"
+              className="w-full min-w-0 rounded-md bg-white/10 px-2 py-1 text-lg font-semibold text-white outline-none ring-2 ring-white/60"
             />
           ) : (
             <button
-              onClick={() => setEditingTitle(true)}
-              className="rounded-md px-2 py-1 text-lg font-semibold whitespace-nowrap hover:bg-white/10 transition cursor-pointer"
+              onClick={() => permissions.canManage && setEditingTitle(true)}
+              disabled={!permissions.canManage}
+              className="min-w-0 truncate rounded-md px-2 py-1 text-lg font-semibold whitespace-nowrap transition enabled:cursor-pointer enabled:hover:bg-white/10 disabled:cursor-default"
             >
               {board.name}
             </button>
           )}
 
-          <BoardViewsDropdown />
+          <button
+            onClick={() => setShowSwitch(true)}
+            className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/10"
+          >
+            <ArrowRightLeft size={16} className="text-brand-300" />
+            <span className="hidden sm:inline">Switch board</span>
+          </button>
+
+          <BoardInsights lists={lists} />
+
+          {boardData.isShared && (
+            <div className="flex items-center gap-2">
+              <RoleBadge role={permissions.role} onDark />
+              <span
+                className="hidden items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25 md:inline-flex"
+                title={boardData.owner?.email}
+              >
+                <Users size={12} />
+                Shared by {boardData.owner?.name || "the owner"}
+              </span>
+            </div>
+          )}
         </div>
         {/* Spacer */}
         <div className="flex-1" />
         {/* Right */}
         <div className="flex items-center gap-1">
-          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
-            <UserRound size={16} />
-          </button>
-
-          {/* <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
-            <Plug size={16} />
-          </button>
-
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 cursor-pointer">
-            <Bot size={16} />
-          </button> */}
 <BoardFilterDropdown
   filters={filters}
   setFilters={setFilters}
@@ -622,9 +408,6 @@ const filteredLists = useMemo(() => {
   open={isFilterOpen}
   setOpen={setIsFilterOpen}
 />
-{hasActiveFilters && isFiltering && (
-  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-)}
           {/* {hasActiveFilters && (
             <span className="rounded-full bg-blue-500/20 px-2 py-1 text-xs text-blue-200">
               {Object.values(filters).filter(Boolean).length} active
@@ -632,7 +415,9 @@ const filteredLists = useMemo(() => {
           )} */}
           <button
             onClick={handleStarClick}
-            className="p-2 rounded-md hover:bg-white/10 cursor-pointer"
+            aria-label={board.isStarred ? "Remove from starred" : "Star this board"}
+            title={board.isStarred ? "Remove from starred" : "Star this board"}
+            className="cursor-pointer rounded-md p-2 transition hover:bg-white/10"
           >
             <Star
               size={16}
@@ -645,22 +430,60 @@ const filteredLists = useMemo(() => {
             <Lock size={16} />
           </button> */}
 
-          <button className="flex items-center gap-1 bg-white text-slate-900 rounded-md px-3 py-1.5 hover:bg-slate-200 cursor-pointer">
+          <button
+            onClick={() => setShowShare(true)}
+            aria-label="Share board"
+            className="flex items-center gap-1 bg-white text-slate-900 rounded-md px-3 py-1.5 hover:bg-slate-200 cursor-pointer"
+          >
             <Share2 size={15} />
-            <span>Share</span>
+            <span className="hidden sm:inline">Share</span>
           </button>
 
-          <button className="p-2 rounded-md hover:bg-white/10 cursor-pointer">
-            <MoreHorizontal size={18} />
-          </button>
+          <BoardMenu
+            board={board}
+            canManage={permissions.canManage}
+            canEdit={permissions.canEdit}
+            saving={backgroundMutation.isPending}
+            onChangeBackground={(key) => backgroundMutation.mutate(key)}
+          />
         </div>
       </div>
+      {permissions.isViewer && (
+        <div className="flex items-center justify-center gap-2 bg-slate-900/50 px-4 py-2 text-center text-sm font-medium text-white backdrop-blur-md">
+          <Eye size={15} className="shrink-0 text-accent-300" />
+          You have view-only access to this board. Ask the owner for Editor
+          access to make changes.
+        </div>
+      )}
+
+      {filtersOn && (
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-black/25 px-4 py-2 text-center text-sm font-medium text-white backdrop-blur-md">
+          <span>
+            Showing {countCards(filteredLists)} of {countCards(lists)} cards
+          </span>
+          {permissions.canEdit && (
+            <span className="text-white/70">
+              Drag &amp; drop is paused while filtering
+            </span>
+          )}
+          <button
+            onClick={() => {
+              setFilters(EMPTY_FILTERS);
+              setSearch("");
+            }}
+            className="cursor-pointer rounded-md bg-white/15 px-2.5 py-0.5 text-xs font-semibold transition hover:bg-white/25"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+
       {/* BOARD */}
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
+        collisionDetection={collisionDetection}
+        {...dragHandlers}
       >
         <SortableContext
           items={listIds}
@@ -668,13 +491,19 @@ const filteredLists = useMemo(() => {
         >
           <div className="flex-1 overflow-x-auto px-3 sm:px-6 py-4 sm:py-6">
             <div className="flex min-w-max items-start gap-3 sm:gap-6">
-              {filteredLists.map((list) => (
+              {displayLists.map((list) => (
                 <List key={list.id} list={list} />
               ))}
 
               {/* ADD LIST */}
 
-              {isAddingList ? (
+              {!permissions.canEdit ? (
+                lists.length === 0 && (
+                  <div className="w-[272px] rounded-xl bg-white/15 p-4 text-sm font-medium text-white backdrop-blur-md">
+                    This board has no lists yet.
+                  </div>
+                )
+              ) : isAddingList ? (
                 <div className="w-[272px] flex-shrink-0 rounded-xl bg-white/20 backdrop-blur-md p-3 shadow-sm">
                   <input
                     type="text"
@@ -714,9 +543,29 @@ const filteredLists = useMemo(() => {
             </div>
           </div>
         </SortableContext>
+
+        {/* The copy that follows the pointer */}
+        <DragOverlay dropAnimation={dropAnimation} zIndex={60}>
+          {draggedCard && (
+            <CardOverlay card={draggedCard} width={activeItem.width} />
+          )}
+          {draggedList && (
+            <ListOverlay list={draggedList} width={activeItem.width} />
+          )}
+        </DragOverlay>
       </DndContext>
-      <BottomBar />
+      {showSwitch && (
+        <SwitchBoardsModal
+          currentWorkspaceId={workspaceId}
+          onClose={() => setShowSwitch(false)}
+        />
+      )}
+
+      {showShare && (
+        <ShareBoardModal board={board} onClose={() => setShowShare(false)} />
+      )}
     </div>
+    </BoardPermissionsProvider>
   );
 };
 

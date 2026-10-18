@@ -1,28 +1,48 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FaEdit } from "react-icons/fa";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import { toggleCardCompletedApi } from "../api/cardApi";
+import { useBoardPermissions } from "../context/boardPermissions";
+import { cardDndId } from "../lib/boardDnd";
+import CoverImage from "./CoverImage";
+import {
+  imageErrorMessage,
+  imageFromClipboard,
+  uploadCardImage,
+} from "../lib/imageUpload";
+import { getErrorMessage } from "../lib/validation";
 import { getCardLabels } from "../api/labelApi";
 import {
+  AlignLeft,
+  Archive,
   CheckSquare,
+  Clock,
   Paperclip,
   MessageSquare,
   Circle,
   CheckCircle2,
 } from "lucide-react";
+import { useArchive } from "../hooks/useArchive";
+import { getInitials } from "../lib/user";
+
+const MAX_AVATARS = 3;
 
 function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
   //  console.log("CARD DATA:", card);
   const queryClient = useQueryClient();
+  const { canEdit, canDrag } = useBoardPermissions();
+  const { archive } = useArchive(cardContext.boardId);
+  const [uploading, setUploading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(card.title);
   const [editedImage, setEditedImage] = useState(card.coverImage || "");
   // SIMPLE DELETE MODAL
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const handleToggleComplete = async (e) => {
+  const handleToggleComplete = async () => {
     try {
       await toggleCardCompletedApi(card.id);
 
@@ -33,7 +53,7 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
         queryKey: ["board", cardContext.boardId, "filters"],
       });
     } catch (error) {
-      console.log(error);
+      toast.error(getErrorMessage(error, "Could not update the card"));
     }
   };
   const {
@@ -42,8 +62,12 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({
-    id: card.id,
+    id: cardDndId(card.id),
+    // Viewers (and filtered views) can open cards but not drag them
+    disabled: !canDrag,
+    transition: { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
     data: {
       type: "card",
       cardId: card.id,
@@ -59,8 +83,9 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
   });
 
   const labels = labelsData?.labels || [];
+  // Translate only: scaling would squash cards of different heights
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 
@@ -89,15 +114,41 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
           0),
       0,
     ) || 0;
-  // console.log("CARD ATTACHMENTS:", card.Attachments);
+
+  const members = card.members || [];
+  const attachmentCount = card.Attachments?.length || 0;
+  const commentCount = card.Comments?.length || 0;
+  const hasDescription = !!card.description?.trim();
+  const hasBadges =
+    !!card.dueDate ||
+    hasDescription ||
+    totalChecklistItems > 0 ||
+    attachmentCount > 0 ||
+    commentCount > 0 ||
+    members.length > 0;
+
+  // Due date colours: done, overdue, due today, or just a date
+  const dueDate = card.dueDate ? new Date(card.dueDate) : null;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const dueDay = dueDate ? new Date(dueDate) : null;
+  dueDay?.setHours(0, 0, 0, 0);
+  const dueTone = card.isCompleted
+    ? "bg-green-100 text-green-700"
+    : dueDay && dueDay < startOfToday
+      ? "bg-rose-100 text-rose-700"
+      : dueDay && dueDay.getTime() === startOfToday.getTime()
+        ? "bg-amber-100 text-amber-800"
+        : "bg-slate-100 text-slate-700";
   return (
     <>
       <div
         ref={setNodeRef}
         style={style}
-        {...listeners}
-        {...attributes}
-        className="
+        {...(canDrag ? listeners : {})}
+        {...(canDrag ? attributes : {})}
+        className={`
+ animate-card-in
  relative
  group
  overflow-hidden
@@ -107,7 +158,12 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
  bg-white
  p-2
  shadow-sm
- cursor-grab
+ ${canDrag ? "cursor-grab" : "cursor-pointer"}
+ ${
+   isDragging
+     ? "border-dashed !border-brand-400 bg-brand-50/70 shadow-none ring-0 [&>*]:invisible"
+     : ""
+ }
  transition-all
  duration-200
  hover:-translate-y-0.5
@@ -115,7 +171,7 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
  hover:border-sky-500
  hover:ring-2
  hover:ring-sky-500/30
- "
+ `}
       >
         {/* EDIT MODE */}
         {isEditing ? (
@@ -123,41 +179,50 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
             <textarea
               value={editedTitle}
               onChange={(e) => setEditedTitle(e.target.value)}
-              onPaste={(e) => {
-                const items = e.clipboardData.items;
+              onPaste={async (e) => {
+                const file = imageFromClipboard(e);
 
-                for (const item of items) {
-                  if (item.type.startsWith("image/")) {
-                    e.preventDefault();
+                if (!file) return;
 
-                    const file = item.getAsFile();
+                e.preventDefault();
+                setUploading(true);
 
-                    if (!file) return;
-
-                    const imageUrl = URL.createObjectURL(file);
-
-                    setEditedImage(imageUrl);
-
-                    return;
-                  }
+                try {
+                  // Stored on the server, so it is still there after saving
+                  setEditedImage(await uploadCardImage(file));
+                  toast.success("Image added");
+                } catch (error) {
+                  toast.error(imageErrorMessage(error));
+                } finally {
+                  setUploading(false);
                 }
               }}
               rows={3}
               className="w-full rounded-lg border border-slate-300 bg-white text-slate-800"
             />
 
+            {uploading && (
+              <p className="text-xs font-medium text-slate-500">Uploading image...</p>
+            )}
+
             {editedImage && (
-              <img
-                src={editedImage}
-                alt="preview"
-                className="h-32 w-full rounded-lg object-contain"
-              />
+              <div className="relative">
+                <CoverImage src={editedImage} alt="Cover preview" maxHeight="max-h-40" />
+                <button
+                  type="button"
+                  onClick={() => setEditedImage("")}
+                  className="absolute right-1.5 top-1.5 rounded-md bg-black/55 px-2 py-0.5 text-xs font-semibold text-white hover:bg-black/70"
+                >
+                  Remove
+                </button>
+              </div>
             )}
 
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-500 cursor-pointer"
+                disabled={uploading}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-500 cursor-pointer disabled:opacity-60"
               >
                 Save
               </button>
@@ -178,17 +243,7 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
           <>
             {/* IMAGE */}
             {card.coverImage && (
-              <div className="mb-2 flex h-28 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
-                <img
-                  src={
-                    card.coverImage.startsWith("http")
-                      ? card.coverImage
-                      : `http://localhost:5000${card.coverImage}`
-                  }
-                  alt={card.title}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
+              <CoverImage src={card.coverImage} alt={card.title} className="mb-2" />
             )}
             {/* LABELS */}
             {labels.length > 0 && (
@@ -196,6 +251,7 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
                 {labels.map((label) => (
                   <div
                     key={label.id}
+                    title={label.name}
                     className="h-3 w-16 rounded-sm"
                     style={{
                       backgroundColor: label.color,
@@ -222,6 +278,7 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
   `}
                 >
                   <button
+                    disabled={!canEdit}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleToggleComplete(e);
@@ -249,66 +306,103 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
                     {card.title}
                   </p>
 
-                  <div className="mt-2 flex items-center justify-between">
-                    {/* Due Date */}
-                    {card.dueDate ? (
-                      <div className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
-                        📅{" "}
-                        {new Date(card.dueDate).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </div>
-                    ) : (
-                      <div />
-                    )}
-                    {totalChecklistItems > 0 && (
-                      <div
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${
-                          completedChecklistItems === totalChecklistItems
-                            ? "bg-green-100 text-green-700"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        <CheckSquare size={13} />{" "}
-                        <span>
+                  {/* Everything set in the card dialog shows up here */}
+                  {hasBadges && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {/* Due date */}
+                      {card.dueDate && (
+                        <span
+                          title={`Due ${dueDate.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`}
+                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${dueTone}`}
+                        >
+                          <Clock size={12} className="shrink-0" />
+                          {dueDate.toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                      )}
+
+                      {/* Description */}
+                      {hasDescription && (
+                        <span
+                          title="This card has a description"
+                          className="inline-flex items-center rounded-md px-1 py-0.5 text-slate-500"
+                        >
+                          <AlignLeft size={14} />
+                        </span>
+                      )}
+
+                      {/* Checklist */}
+                      {totalChecklistItems > 0 && (
+                        <span
+                          title="Checklist items done"
+                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                            completedChecklistItems === totalChecklistItems
+                              ? "bg-green-100 text-green-700"
+                              : "text-slate-600"
+                          }`}
+                        >
+                          <CheckSquare size={13} className="shrink-0" />
                           {completedChecklistItems}/{totalChecklistItems}
                         </span>
-                      </div>
-                    )}
-                    {card.Attachments?.length > 0 && (
-                      <div className="flex items-center gap-1 text-xs text-slate-600 ml-2">
-                        <Paperclip size={14} />
-                        {card.Attachments.length}
-                      </div>
-                    )}
-                    {card.comments?.length > 0 && (
-                      <div className="flex items-center gap-2 text-xs text-slate-600 ml-2">
-                        <MessageSquare size={14} />
-                        {card.comments.length}
-                      </div>
-                    )}
-                    {/* Members */}
-                    {/* console.log("CARD MEMBERS:", card.members); */}
-                    {card.members?.length > 0 && (
-                      <div className="ml-auto flex">
-                        {card.members.map((member, index) => (
-                          <div
-                            key={member.id}
-                            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-[10px] font-semibold text-white ${
-                              index !== 0 ? "-ml-2" : ""
-                            }`}
-                            title={member.name}
-                          >
-                            {member.name?.charAt(0).toUpperCase()}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                      )}
+
+                      {/* Attachments */}
+                      {attachmentCount > 0 && (
+                        <span
+                          title={`${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`}
+                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-600"
+                        >
+                          <Paperclip size={13} className="shrink-0" />
+                          {attachmentCount}
+                        </span>
+                      )}
+
+                      {/* Comments */}
+                      {commentCount > 0 && (
+                        <span
+                          title={`${commentCount} comment${commentCount === 1 ? "" : "s"}`}
+                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-600"
+                        >
+                          <MessageSquare size={13} className="shrink-0" />
+                          {commentCount}
+                        </span>
+                      )}
+
+                      {/* Members */}
+                      {members.length > 0 && (
+                        <span className="ml-auto flex shrink-0 pl-1">
+                          {members.slice(0, MAX_AVATARS).map((member, index) => (
+                            <span
+                              key={member.id}
+                              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-[10px] font-semibold text-white ${
+                                index !== 0 ? "-ml-2" : ""
+                              }`}
+                              title={member.name}
+                            >
+                              {getInitials(member.name)}
+                            </span>
+                          ))}
+                          {members.length > MAX_AVATARS && (
+                            <span
+                              className="-ml-2 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-slate-200 px-1 text-[10px] font-semibold text-slate-600"
+                              title={members
+                                .slice(MAX_AVATARS)
+                                .map((member) => member.name)
+                                .join(", ")}
+                            >
+                              +{members.length - MAX_AVATARS}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex gap-1 opacity-0 transition-all duration-150 group-hover:opacity-100">
+                {canEdit && (
+                <div className="absolute right-1 top-1 z-10 flex gap-0.5 rounded-lg bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-slate-200 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -322,6 +416,19 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      archive("card", card.id);
+                    }}
+                    aria-label="Archive card"
+                    title="Archive card"
+                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                  >
+                    <Archive size={14} />
+                  </button>
+
+                  <button
+                    aria-label="Delete card"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setShowDeleteModal(true);
                     }}
                     className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-600 cursor-pointer"
@@ -329,6 +436,7 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
                     ✕
                   </button>
                 </div>
+                )}
               </div>
             </div>
           </>
@@ -367,4 +475,6 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
   );
 }
 
-export default Card;
+// Re-render only when this card's own data changes (the handlers passed in
+// only depend on things that never change while the board is open)
+export default memo(Card, (previous, next) => previous.card === next.card);

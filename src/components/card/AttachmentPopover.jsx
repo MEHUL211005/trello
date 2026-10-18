@@ -1,95 +1,71 @@
 import { useRef } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { UploadCloud } from "lucide-react";
+import toast from "react-hot-toast";
 
-import {
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { uploadAttachment } from "../../api/attachmentApi";
+import { getErrorMessage } from "../../lib/validation";
 
-import {
-  uploadAttachment,
-} from "../../api/attachmentApi";
+const MAX_SIZE_MB = 10;
 
-
-function AttachmentPopover({
-  onClose,
-  cardContext,
-}) {
-
+function AttachmentPopover({ onClose, cardContext }) {
   const fileInputRef = useRef(null);
 
   const queryClient = useQueryClient();
 
-
   const uploadMutation = useMutation({
-
     mutationFn: uploadAttachment,
 
-
-    onSuccess:()=>{
-
+    onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey:[
-          "attachments",
-          cardContext.cardId
-        ]
+        queryKey: ["attachments", cardContext.cardId],
       });
 
-
       queryClient.invalidateQueries({
-        queryKey:[
-          "board",
-          cardContext.boardId
-        ]
+        queryKey: ["board", cardContext.boardId],
       });
 
-
+      toast.success("File attached");
       onClose();
+    },
 
-    }
-
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not upload the file"));
+    },
   });
 
-
-
   const handleFileChange = (e) => {
-
     const file = e.target.files[0];
+    e.target.value = "";
 
     if (!file) return;
 
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      toast.error(`That file is too large. The limit is ${MAX_SIZE_MB} MB.`);
+      return;
+    }
 
     uploadMutation.mutate({
-
       cardId: cardContext.cardId,
-
       file,
-
     });
-
   };
 
-
-
   return (
-    <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
-
-      <h3 className="mb-4 text-center text-sm font-semibold">
-        Add Attachment
-      </h3>
-
-
+    <div>
       <button
         onClick={() => fileInputRef.current.click()}
-        className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500"
+        disabled={uploadMutation.isPending}
+        className="flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/60 px-4 py-7 text-slate-500 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-60"
       >
-
-        {uploadMutation.isPending
-          ? "Uploading..."
-          : "Choose File"
-        }
-
+        <UploadCloud size={28} />
+        <span className="text-sm font-semibold">
+          {uploadMutation.isPending ? "Uploading..." : "Choose a file"}
+        </span>
+        <span className="text-xs text-slate-400">
+          Images, PDFs, documents and more, up to {MAX_SIZE_MB} MB
+        </span>
       </button>
-
 
       <input
         ref={fileInputRef}
@@ -97,19 +73,8 @@ function AttachmentPopover({
         onChange={handleFileChange}
         className="hidden"
       />
-
-
-      <button
-        onClick={onClose}
-        className="mt-3 w-full rounded-md bg-slate-200 px-4 py-2 text-sm hover:bg-slate-300"
-      >
-        Cancel
-      </button>
-
     </div>
   );
-
 }
-
 
 export default AttachmentPopover;

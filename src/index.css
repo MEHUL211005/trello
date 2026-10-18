@@ -1,14 +1,185 @@
 @import "tailwindcss";
+@import "./dark.css";
+
+/* `dark:` variants work too, for any new component that wants them */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------
+   TaskSphere design tokens
+
+   The app was built with Tailwind's `blue` and `sky` colours for every
+   primary action. Re-pointing both at the TaskSphere brand palette
+   re-colours every button, link, focus ring and highlight at once.
+   ------------------------------------------------------------------ */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, sans-serif;
+
+  /* Brand - electric violet */
+  --color-brand-50: #f4f1ff;
+  --color-brand-100: #ebe5ff;
+  --color-brand-200: #d9cfff;
+  --color-brand-300: #bdaeff;
+  --color-brand-400: #9c85fb;
+  --color-brand-500: #7f63f4;
+  --color-brand-600: #6a47ea;
+  --color-brand-700: #5836d0;
+  --color-brand-800: #472ca8;
+  --color-brand-900: #3a2784;
+  --color-brand-950: #1f1450;
+
+  /* Accent - aqua, used for success and "done" moments */
+  --color-accent-50: #effefa;
+  --color-accent-100: #c8fff2;
+  --color-accent-200: #92fee4;
+  --color-accent-300: #54f2d1;
+  --color-accent-400: #22dcba;
+  --color-accent-500: #09c0a2;
+  --color-accent-600: #049a84;
+  --color-accent-700: #087b6b;
+
+  /* Warm highlight - stars, streaks, call-outs */
+  --color-sun-400: #ffb84d;
+  --color-sun-500: #ff9f1c;
+  --color-rose-brand: #ff5c8a;
+
+  /* Existing `blue` and `sky` classes now use the brand scale */
+  --color-blue-50: #f4f1ff;
+  --color-blue-100: #ebe5ff;
+  --color-blue-200: #d9cfff;
+  --color-blue-300: #bdaeff;
+  --color-blue-400: #9c85fb;
+  --color-blue-500: #7f63f4;
+  --color-blue-600: #6a47ea;
+  --color-blue-700: #5836d0;
+  --color-blue-800: #472ca8;
+  --color-blue-900: #3a2784;
+  --color-blue-950: #1f1450;
+
+  --color-sky-50: #f4f1ff;
+  --color-sky-100: #ebe5ff;
+  --color-sky-200: #d9cfff;
+  --color-sky-300: #bdaeff;
+  --color-sky-400: #9c85fb;
+  --color-sky-500: #7f63f4;
+  --color-sky-600: #6a47ea;
+  --color-sky-700: #5836d0;
+  --color-sky-800: #472ca8;
+  --color-sky-900: #3a2784;
+  --color-sky-950: #1f1450;
+
+  /* Slightly warmer, violet-tinted neutrals */
+  --color-slate-50: #f7f7fc;
+  --color-slate-100: #efeff8;
+  --color-slate-200: #e2e2f0;
+  --color-slate-300: #cbcbe0;
+  --color-slate-400: #9a9ab8;
+  --color-slate-500: #6c6c8c;
+  --color-slate-600: #51516f;
+  --color-slate-700: #3b3b57;
+  --color-slate-800: #25253d;
+  --color-slate-900: #171728;
+  --color-slate-950: #0e0e1c;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root.dark {
+  --toast-bg: #1e1e33;
+  --toast-text: #ecebf9;
+  --toast-border: #3b3b5d;
+}
+
 body {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
+  background: var(--color-slate-50);
+  color: var(--color-slate-800);
+  -webkit-font-smoothing: antialiased;
 }
-.sidebar-btn {
-  @apply flex items-center gap-3 px-2 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-100 cursor-pointer w-full;
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
 }
+
 button {
   cursor: pointer;
 }
 
 button:disabled {
   cursor: not-allowed;
+}
+
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-brand-950);
+}
+
+/* Slim, tinted scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-slate-300) transparent;
+}
+
+.sidebar-btn {
+  @apply flex items-center gap-3 px-2 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-100 cursor-pointer w-full;
+}
+
+/* ---------- Brand surfaces ---------- */
+
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #5b3be0 0%, #7f4df2 45%, #c04df0 100%);
+}
+
+.bg-auth-gradient {
+  background: linear-gradient(140deg, #3f35c9 0%, #5440e3 42%, #7355f2 100%);
+}
+
+.bg-brand-gradient-soft {
+  background: linear-gradient(135deg, #f4f1ff 0%, #fdf2ff 100%);
+}
+
+.text-brand-gradient {
+  background: linear-gradient(90deg, #6a47ea, #c04df0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Board backdrops (each board gets one, chosen from its id) */
+.board-bg-0 { background: linear-gradient(135deg, #1f1450 0%, #4a2fb8 55%, #8a4df2 100%); }
+.board-bg-1 { background: linear-gradient(135deg, #0b2a3d 0%, #0c6a7a 55%, #14b8a6 100%); }
+.board-bg-2 { background: linear-gradient(135deg, #3a1250 0%, #9b2d8e 55%, #ff5c8a 100%); }
+.board-bg-3 { background: linear-gradient(135deg, #0f1b4d 0%, #1d4ed8 55%, #38bdf8 100%); }
+.board-bg-4 { background: linear-gradient(135deg, #3b1d0e 0%, #b4491b 55%, #ffb84d 100%); }
+.board-bg-5 { background: linear-gradient(135deg, #0c2f24 0%, #137a55 55%, #7ae0a8 100%); }
+
+/* ---------- Motion ---------- */
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes card-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-card-in { animation: card-in 160ms ease-out both; }
+.animate-float-slow { animation: float-slow 7s ease-in-out infinite; }
+.animate-fade-up { animation: fade-up 0.5s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-slow,
+  .animate-card-in,
+  .animate-fade-up { animation: none; }
 }

@@ -53,7 +53,7 @@ const BoardFilterDropdown = ({
   };
 
   return (
-    <div className="relative" ref={wrapperRef}>
+    <div className="relative max-sm:static" ref={wrapperRef}>
      <button
   onClick={() => setOpen(!open)}
   className="flex items-center justify-center p-2 rounded-md hover:bg-white/10 cursor-pointer"
@@ -75,7 +75,7 @@ const BoardFilterDropdown = ({
 </button>
 
       {open && (
-<div className="absolute right-0 top-full mt-2 w-80 max-h-[80vh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl z-[10000]">          {/* Header */}
+<div className="absolute right-0 top-full mt-2 w-80 max-sm:inset-x-3 max-sm:w-auto max-h-[80vh] max-sm:max-h-[calc(100dvh-11rem)] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl z-[10000]">          {/* Header */}
           <div className="border-b border-slate-100 px-4 py-3">
             <h3 className="text-sm font-semibold text-slate-800">Filter</h3>
             <p className="mt-0.5 text-xs text-slate-500">

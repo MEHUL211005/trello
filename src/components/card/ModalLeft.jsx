@@ -1,84 +1,85 @@
+import { useQuery } from "@tanstack/react-query";
+
+import { useBoardPermissions } from "../../context/boardPermissions";
+import { getCardLabels } from "../../api/labelApi";
 import ModalActions from "./ModalActions";
 import ModalDescription from "./ModalDescription";
 import Checklist from "./Checklist";
 import ModalAttachments from "./ModalAttachments";
-import { useQuery } from "@tanstack/react-query";
-import { getCardLabels } from "../../api/labelApi";
-// import Activity from "./Activity";
 import ModalLabels from "./ModalLabels";
 import ModalDueDate from "./ModalDueDate";
+import { Avatar, MetaLabel } from "./ui";
 
-function ModalLeft({card,title,setTitle, cardContext}) {
-  const {
-  data: labelsData,
-} = useQuery({
+function ModalLeft({ card, cardContext }) {
+  const { canEdit } = useBoardPermissions();
 
-  queryKey:["cardLabels", card.id],
+  const { data: labelsData } = useQuery({
+    queryKey: ["cardLabels", card.id],
+    queryFn: () => getCardLabels(card.id),
+    enabled: !!card.id,
+  });
 
-  queryFn:()=>getCardLabels(card.id),
+  const labels = labelsData?.labels || [];
+  const members = card.members || [];
 
-  enabled:!!card.id,
+  const hasMeta = labels.length > 0 || card.dueDate || members.length > 0;
 
-});
-
-
-const labels = labelsData?.labels || [];
-      const {
-    userId,
-    workspaceId,
-    boardId,
-    listId,
-  } = cardContext;
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6">
-   <ModalLabels labels={labels} />
-    <ModalDueDate dueDate={card.dueDate} />
-      <ModalActions
-        userId={userId}
-        workspaceId={workspaceId}
-        boardId={boardId}
-        listId={listId}
-        cardId={card.id}
-        />
-        {card.members?.length > 0 && (
-  <div className="mb-6">
-    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-      Members
-    </h4>
+    <div className="space-y-7 px-6 py-6 sm:px-8">
+      {/* Quick facts: who, what, when */}
+      {hasMeta && (
+        <div className="flex flex-wrap gap-x-10 gap-y-5">
+          {members.length > 0 && (
+            <div>
+              <MetaLabel>Members</MetaLabel>
+              <div className="flex -space-x-2">
+                {members.map((member) => (
+                  <Avatar
+                    key={member.id}
+                    id={member.id}
+                    name={member.name}
+                    size={34}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
-    <div className="flex items-center gap-2">
-      {card.members.map((member) => (
-  <div
-    key={member.id}
-    className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-sm font-semibold text-white"
-    title={member.name}
-  >
-    {member.name?.charAt(0).toUpperCase()}
-  </div>
-))}
-    </div>
-  </div>
-)}
+          <ModalLabels labels={labels} />
+
+          <ModalDueDate dueDate={card.dueDate} isCompleted={card.isCompleted} />
+        </div>
+      )}
+
+      {canEdit && (
+      <ModalActions
+        userId={cardContext.userId}
+        workspaceId={cardContext.workspaceId}
+        boardId={cardContext.boardId}
+        listId={cardContext.listId}
+        cardId={card.id}
+        dueDate={card.dueDate}
+        assignedIds={members.map((member) => member.id)}
+      />
+      )}
 
       <ModalDescription card={card} cardContext={cardContext} />
 
       <Checklist
-      card={card}
-      cardContext={{
-      ...cardContext,
-      cardId: card.id,
-      }}
+        card={card}
+        cardContext={{
+          ...cardContext,
+          cardId: card.id,
+        }}
       />
 
-     <ModalAttachments
-      card={card}
-      cardContext={{
-    ...cardContext,
-      cardId: card.id,
-    }}
-    />
-
-      {/* <Activity /> */}
+      <ModalAttachments
+        card={card}
+        cardContext={{
+          ...cardContext,
+          cardId: card.id,
+        }}
+      />
     </div>
   );
 }

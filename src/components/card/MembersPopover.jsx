@@ -1,166 +1,104 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  getBoardMembers,
-  toggleMember,
-} from "../../api/membersApi";
+import { Check, Search } from "lucide-react";
+import toast from "react-hot-toast";
 
+import { getBoardMembers, toggleMember } from "../../api/membersApi";
+import { getErrorMessage } from "../../lib/validation";
+import { Avatar, inputCls } from "./ui";
 
-function MembersPopover({ cardContext, onClose }) {
-
+function MembersPopover({ cardContext, assignedIds = [] }) {
   const queryClient = useQueryClient();
+  const [filter, setFilter] = useState("");
 
-
-  const {
-    data: membersData
-  } = useQuery({
-
-    queryKey:[
-      "boardMembers",
-      cardContext.boardId
-    ],
-
-    queryFn:()=>getBoardMembers(cardContext.boardId),
-
+  const { data: membersData, isLoading } = useQuery({
+    queryKey: ["boardMembers", cardContext.boardId],
+    queryFn: () => getBoardMembers(cardContext.boardId),
   });
 
-
-  const availableMembers = membersData?.members || [];
-
-
+  const availableMembers = (membersData?.members || []).filter((member) =>
+    `${member.name} ${member.email}`
+      .toLowerCase()
+      .includes(filter.trim().toLowerCase()),
+  );
 
   const toggleMutation = useMutation({
-
     mutationFn: toggleMember,
 
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: ["board", cardContext.boardId],
+      });
+      toast.success(data?.assigned ? "Member assigned" : "Member removed");
+    },
 
-   onSuccess:()=>{
-
-  queryClient.invalidateQueries({
-    queryKey:[
-      "board",
-      cardContext.boardId
-    ]
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not update members"));
+    },
   });
 
+  return (
+    <div>
+      <div className="relative mb-3">
+        <Search
+          size={15}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Search members"
+          className={`${inputCls} pl-9`}
+        />
+      </div>
+
+      <div className="max-h-60 space-y-1 overflow-y-auto">
+        {isLoading && (
+          <p className="py-4 text-center text-xs text-slate-400">Loading...</p>
+        )}
+
+        {!isLoading && availableMembers.length === 0 && (
+          <p className="rounded-lg bg-slate-50 py-4 text-center text-xs text-slate-400">
+            {filter ? "No one matches that search" : "No members on this board"}
+          </p>
+        )}
+
+        {availableMembers.map((member) => {
+          const assigned = assignedIds.includes(member.id);
+
+          return (
+            <button
+              key={member.id}
+              onClick={() =>
+                toggleMutation.mutate({
+                  cardId: cardContext.cardId,
+                  userId: member.id,
+                })
+              }
+              className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-slate-50"
+            >
+              <Avatar id={member.id} name={member.name} size={34} />
+
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-slate-800">
+                  {member.name}
+                </span>
+                <span className="block truncate text-xs text-slate-400">
+                  {member.email}
+                </span>
+              </span>
+
+              {assigned && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white">
+                  <Check size={12} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
-
-
-  });
-
-
-
-return (
-<div className="
-absolute
-right-0
-top-full
-z-50
-mt-2
-w-72
-rounded-lg
-border
-border-slate-200
-bg-white
-p-4
-shadow-xl
-">
-
-<h3 className="
-mb-3
-text-center
-text-sm
-font-semibold
-">
-Members
-</h3>
-
-
-<div className="
-max-h-64
-space-y-2
-overflow-y-auto
-">
-
-
-{
-availableMembers.map((member)=>(
-
-
-<div
-
-key={member.id}
-
-onClick={()=>{
-
-toggleMutation.mutate({
-
-cardId:cardContext.cardId,
-
-userId:member.id
-
-});
-
-}}
-
-
-className="
-flex
-cursor-pointer
-items-center
-gap-3
-rounded-md
-p-2
-hover:bg-slate-100
-"
-
-
->
-
-
-<div
-className="
-flex
-h-8
-w-8
-items-center
-justify-center
-rounded-full
-bg-blue-500
-text-sm
-font-semibold
-text-white
-"
->
-
-{
-member.name
-?.charAt(0)
-.toUpperCase()
-}
-
-</div>
-
-
-<span className="text-sm">
-{member.name}
-</span>
-
-
-</div>
-
-
-))
-
-}
-
-
-</div>
-
-
-</div>
-);
-
-}
-
 
 export default MembersPopover;

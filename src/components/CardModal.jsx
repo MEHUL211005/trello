@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 import ModalHeader from "./card/ModalHeader";
 import ModalLeft from "./card/ModalLeft";
 import ModalRight from "./card/ModalRight";
@@ -21,33 +23,18 @@ function CardModal({ card, list, cardContext, onClose }) {
     };
   }, [onClose]);
 
-  return (
+  // Rendered in a portal so a dragged / transformed list can't offset it
+  return createPortal(
     <div
-      onClick={onClose}
-      className="
-      fixed inset-0 
-      z-[999]
-      flex 
-      items-center 
-      justify-center 
-      bg-black/60
-      p-6
-    "
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      className="fixed inset-0 z-[999] flex items-start justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:items-center sm:p-6"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="
-        flex
-        max-h-[90vh]
-        min-h-[300px]
-        w-full
-        max-w-[1100px]
-        flex-col
-        overflow-hidden
-        rounded-2xl
-        bg-slate-50
-        shadow-2xl
-        "
+        className="animate-fade-up flex max-h-[92vh] w-full min-w-0 max-w-[1120px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl shadow-black/40 ring-1 ring-white/10"
       >
         <ModalHeader
           card={card}
@@ -58,14 +45,9 @@ function CardModal({ card, list, cardContext, onClose }) {
           cardContext={cardContext}
         />
 
-        <div className="flex flex-1 overflow-hidden">
-          <div
-            className="
-          w-[60%]
-          overflow-y-auto
-          p-6
-        "
-          >
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+          {/* MAIN */}
+          <div className="min-w-0 flex-1 lg:overflow-y-auto">
             <ModalLeft
               card={card}
               cardContext={cardContext}
@@ -74,21 +56,14 @@ function CardModal({ card, list, cardContext, onClose }) {
             />
           </div>
 
-          <div
-            className="
-          w-[40%]
-          border-l
-          border-slate-200
-          bg-white
-          overflow-y-auto
-          p-5
-        "
-          >
+          {/* COMMENTS + ACTIVITY */}
+          <aside className="min-w-0 shrink-0 border-t border-slate-200 bg-slate-50 lg:w-[400px] lg:overflow-y-auto lg:border-l lg:border-t-0">
             <ModalRight card={card} cardContext={cardContext} />
-          </div>
+          </aside>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

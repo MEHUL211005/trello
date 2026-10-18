@@ -1,12 +1,23 @@
-import { useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { deleteList as deleteListApi } from "../api/listApi";
 import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useBoardPermissions } from "../context/boardPermissions";
+import { cardDndId, cardsDropId, listDndId } from "../lib/boardDnd";
+import CoverImage from "./CoverImage";
+import {
+  imageErrorMessage,
+  imageFromClipboard,
+  uploadCardImage,
+} from "../lib/imageUpload";
+import { getErrorMessage } from "../lib/validation";
 import { useQueryClient } from "@tanstack/react-query";
-import { PanelLeftClose, MoreHorizontal } from "lucide-react";
+import { Archive } from "lucide-react";
+import { useArchive } from "../hooks/useArchive";
 import {
   createCard,
   deleteCard as deleteCardApi,
@@ -15,23 +26,22 @@ import {
 
 import Card from "./Card";
 import CardModal from "./CardModal";
-import { uploadImage } from "../api/uploadApi";
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 function List({ list }) {
   const { workspaceId, boardId } = useParams();
+  const { canEdit, canDrag } = useBoardPermissions();
 
   const queryClient = useQueryClient();
   const { user } = useSelector((state) => state.auth);
 
   const [selectedCardId, setSelectedCardId] = useState(null);
-  const dropZoneId = `${list.id}-cards`;
-  const { setNodeRef: setDropRef } = useDroppable({
-    id: dropZoneId,
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: cardsDropId(list.id),
     data: {
-      type: "list",
+      type: "cards",
       listId: list.id,
     },
   });
@@ -42,28 +52,69 @@ function List({ list }) {
     setNodeRef: setSortableRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({
-    id: list.id,
+    id: listDndId(list.id),
+    // Viewers (and filtered views) can look but not rearrange
+    disabled: !canDrag,
+    transition: { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
     data: {
       type: "list",
       listId: list.id,
     },
   });
 
+  // Translate only: scaling would squash lists of different heights
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 
   const [isAddingCard, setIsAddingCard] = useState(false);
+  const composerRef = useRef(null);
+
+  // Opening the composer scrolls the list so the new-card box is on screen
+  useEffect(() => {
+    if (isAddingCard) {
+      composerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isAddingCard]);
   const [cardTitle, setCardTitle] = useState("");
   const [cardImage, setCardImage] = useState(null);
   const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Upload a picked or pasted image; the stored path becomes the card cover
+  const attachImage = async (file) => {
+    setUploading(true);
+
+    try {
+      setCardImage(await uploadCardImage(file));
+    } catch (error) {
+      toast.error(imageErrorMessage(error));
+    } finally {
+      setUploading(false);
+    }
+  };
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const { archive } = useArchive(boardId);
+
+  // ================= ARCHIVE LIST =================
+  const handleArchiveList = async () => {
+    setArchiving(true);
+    await archive("list", list.id);
+    setArchiving(false);
+    setShowArchiveModal(false);
+  };
 
   // ================= ADD CARD =================
   const handleAddCard = async () => {
-    if (!cardTitle.trim()) return;
+    if (!cardTitle.trim()) {
+      toast.error("Give the card a title");
+      return;
+    }
 
     try {
       await createCard({
@@ -83,7 +134,7 @@ function List({ list }) {
       setCardImage(null);
       setIsAddingCard(false);
     } catch (error) {
-      console.error("Add card error:", error);
+      toast.error(getErrorMessage(error, "Could not add the card"));
     }
   };
 
@@ -99,7 +150,7 @@ function List({ list }) {
         queryKey: ["board", boardId, "filters"],
       });
     } catch (error) {
-      console.error("Delete card error:", error);
+      toast.error(getErrorMessage(error, "Could not delete the card"));
     }
   };
 
@@ -117,7 +168,7 @@ function List({ list }) {
 
       setShowDeleteModal(false);
     } catch (error) {
-      console.error("Delete list error:", error);
+      toast.error(getErrorMessage(error, "Could not delete the list"));
     }
   };
 
@@ -138,7 +189,7 @@ function List({ list }) {
         queryKey: ["board", boardId, "filters"],
       });
     } catch (error) {
-      console.error("Edit card error:", error);
+      toast.error(getErrorMessage(error, "Could not update the card"));
     }
   };
 
@@ -153,65 +204,79 @@ function List({ list }) {
       <div
         ref={setSortableRef}
         style={style}
-        className="flex max-h-[calc(100vh-220px)] w-[340px] flex-shrink-0 flex-col rounded-xl bg-[#F1F2F4] shadow-sm"
+        className={`flex max-h-[calc(100vh-220px)] w-[340px] max-w-[calc(100vw-2.5rem)] flex-shrink-0 flex-col rounded-2xl backdrop-blur transition-shadow duration-200 ${
+          isDragging
+            ? "border-2 border-dashed border-white/60 bg-white/15 shadow-none [&>*]:invisible"
+            : `bg-slate-100/95 shadow-lg shadow-black/10 ring-1 ${
+                isOver ? "ring-2 ring-brand-400" : "ring-black/5"
+              }`
+        }`}
       >
         {/* HEADER */}
         {/* HEADER */}
         <div className="flex items-center justify-between px-3 py-2">
           {/* Left */}
           <h2
-            {...attributes}
-            {...listeners}
-            className="cursor-grab select-none text-sm font-semibold text-slate-800"
+            {...(canDrag ? attributes : {})}
+            {...(canDrag ? listeners : {})}
+            className={`select-none text-sm font-semibold text-slate-800 ${
+              canDrag ? "cursor-grab" : "cursor-default"
+            }`}
           >
             {list.name}
           </h2>
 
           {/* Right */}
           <div className="flex items-center gap-1">
-            {/* Number of Cards */}
-            <button className="flex h-7 min-w-7 items-center justify-center rounded-md px-2 text-xs font-medium text-slate-600 hover:bg-slate-300 transition">
-              {list.cards.length}
-            </button>
+            {/* Number of cards */}
+            <span
+              className="flex h-7 min-w-7 items-center justify-center rounded-md px-2 text-xs font-medium text-slate-600"
+              title="Cards in this list"
+            >
+              {list.totalCards !== undefined
+                ? `${list.cards.length}/${list.totalCards}`
+                : list.cards.length}
+            </span>
 
-            {/* Collapse */}
-            <button className="rounded-md p-1.5 text-slate-600 hover:bg-slate-300 transition cursor-pointer">
-              <PanelLeftClose size={16} />
-            </button>
-
-            {/* More Options */}
-            <button className="rounded-md p-1.5 text-slate-600 hover:bg-slate-300 transition cursor-pointer">
-              <MoreHorizontal size={16} />
-            </button>
+            {/* Archive */}
+            {canEdit && (
+              <button
+                onClick={() => setShowArchiveModal(true)}
+                aria-label="Archive list"
+                title="Archive list"
+                className="cursor-pointer rounded-md p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+              >
+                <Archive size={14} />
+              </button>
+            )}
 
             {/* Delete */}
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="rounded-md p-1.5 text-red-500 hover:bg-red-100 hover:text-red-600 transition cursor-pointer"
-            >
-              ✕
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                aria-label="Delete list"
+                className="rounded-md p-1.5 text-red-500 hover:bg-red-100 hover:text-red-600 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 
         {/* CARDS */}
         {/* CARDS */}
+        <div ref={setDropRef} className="flex min-h-0 flex-1 flex-col">
         <div
-          ref={setDropRef}
-          className={`flex-1 overflow-y-auto px-2 pb-2 ${
-            list.cards.length ? "pt-2" : "pt-0"
+          className={`min-h-0 flex-1 overflow-y-auto px-2 ${
+            list.cards.length || isAddingCard ? "pb-2 pt-2" : ""
           }`}
         >
           <SortableContext
-            items={[...(list.cards || [])]
-              .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-              .map((card) => String(card.id))}
+            items={sortedCards.map((card) => cardDndId(card.id))}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-2">
-              {[...(list.cards || [])]
-                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-                .map((card) => (
+              {sortedCards.map((card) => (
                   <Card
                     key={card.id}
                     card={card}
@@ -229,73 +294,57 @@ function List({ list }) {
                 ))}
             </div>
           </SortableContext>
-        </div>
 
-        {/* ADD CARD */}
-        {isAddingCard ? (
-          <div className="px-2 pb-2">
+          {/* New card: part of the scrolling area, so it can never squeeze the
+              cards above it out of sight */}
+          {canEdit && isAddingCard && (
+            <div ref={composerRef} className="pt-2">
             {/* Image Preview */}
+            {uploading && (
+              <p className="mb-2 text-xs font-medium text-slate-500">
+                Uploading image...
+              </p>
+            )}
+
             {cardImage && (
-              <div className="mb-2 flex h-40 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
-                <img
-                  src={
-                    cardImage?.startsWith("/uploads")
-                      ? `http://localhost:5000${cardImage}`
-                      : cardImage
-                  }
-                  alt="Preview"
-                  className="max-h-full max-w-full object-contain"
-                />
+              <div className="relative mb-2">
+                <CoverImage src={cardImage} alt="Preview" maxHeight="max-h-48" />
+                <button
+                  type="button"
+                  onClick={() => setCardImage(null)}
+                  className="absolute right-1.5 top-1.5 rounded-md bg-black/55 px-2 py-0.5 text-xs font-semibold text-white hover:bg-black/70"
+                >
+                  Remove
+                </button>
               </div>
             )}
-            {/* Trello Composer */}
+            {/* Card composer */}
             <div className="rounded-xl bg-white shadow-sm border border-slate-200">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 className="hidden"
-                onChange={async (e) => {
+                onChange={(e) => {
                   const file = e.target.files[0];
+                  e.target.value = "";
 
-                  if (!file) return;
-
-                  try {
-                    const url = await uploadImage(file);
-
-                    setCardImage(url);
-                  } catch (error) {
-                    console.error("Upload error:", error);
-                  }
+                  if (file) attachImage(file);
                 }}
               />
               <textarea
                 value={cardTitle}
                 onChange={(e) => setCardTitle(e.target.value)}
-                onPaste={async (e) => {
-                  const items = e.clipboardData.items;
+                onPaste={(e) => {
+                  const file = imageFromClipboard(e);
 
-                  for (const item of items) {
-                    if (item.type.startsWith("image/")) {
-                      e.preventDefault();
+                  if (!file) return; // plain text pastes as usual
 
-                      const file = item.getAsFile();
-
-                      if (!file) return;
-
-                      try {
-                        const url = await uploadImage(file);
-
-                        setCardImage(url);
-                      } catch (error) {
-                        console.error("Paste upload error:", error);
-                      }
-
-                      return;
-                    }
-                  }
+                  e.preventDefault();
+                  attachImage(file);
                 }}
                 placeholder="Enter a title or paste a link"
+                autoFocus
                 className="min-h-[20px] w-full resize-none rounded-xl border-none bg-transparent p-3 text-sm text-slate-800 placeholder:text-slate-500 outline-none"
               />
             </div>
@@ -303,7 +352,8 @@ function List({ list }) {
             <div className="mt-2 flex items-center gap-2">
               <button
                 onClick={handleAddCard}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                disabled={uploading}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
               >
                 Add card
               </button>
@@ -320,7 +370,18 @@ function List({ list }) {
               </button>
             </div>
           </div>
-        ) : (
+          )}
+
+          {list.totalCards > 0 && list.cards.length === 0 && (
+            <p className="px-1 py-3 text-center text-xs font-medium text-slate-400">
+              No matching cards
+            </p>
+          )}
+        </div>
+
+        {/* ADD CARD */}
+        {/* ADD CARD button (the composer itself lives with the cards) */}
+        {canEdit && !isAddingCard && (
           <button
             onClick={() => setIsAddingCard(true)}
             className="mx-2 mb-2 mt-1 w-[calc(100%-1rem)] cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-300"
@@ -328,7 +389,48 @@ function List({ list }) {
             + Add Card
           </button>
         )}
+        </div>
       </div>
+
+      {/* ARCHIVE LIST MODAL */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div
+            role="dialog"
+            aria-label="Archive list"
+            className="w-[90%] max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-6"
+          >
+            <h2 className="text-xl font-semibold text-white">Archive List</h2>
+
+            <p className="mt-2 text-sm text-slate-400">
+              Archive &ldquo;{list.name}&rdquo;?
+              <br />
+              <span className="text-slate-300">
+                It leaves the board with its {list.totalCards ?? list.cards.length}{" "}
+                card(s). Nothing is deleted, and you can restore it any time
+                from the board menu.
+              </span>
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowArchiveModal(false)}
+                className="rounded-lg bg-slate-700 px-4 py-2 text-white hover:bg-slate-600 cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleArchiveList}
+                disabled={archiving}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-white hover:bg-brand-500 cursor-pointer disabled:opacity-60"
+              >
+                {archiving ? "Archiving..." : "Archive"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DELETE LIST MODAL */}
       {showDeleteModal && (
@@ -380,4 +482,6 @@ function List({ list }) {
   );
 }
 
-export default List;
+// Re-render only when this list (or its cards) actually changed, so
+// dragging in one list does not redraw every other list
+export default memo(List, (previous, next) => previous.list === next.list);

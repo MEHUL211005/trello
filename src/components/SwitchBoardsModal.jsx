@@ -1,21 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getWorkspaces } from "../api/workspaceApi";
 import { getBoards } from "../api/boardApi";
 import { useSelector } from "react-redux";
 
-const covers = [
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800",
-  "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=800",
-  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800",
-  "https://images.unsplash.com/photo-1511300636408-a63a89df3482?w=800",
-  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800",
-];
-
+import { useTheme } from "../context/theme";
+import { backgroundStyle } from "../lib/boardBackgrounds";
 
 const SwitchBoardsModal = ({ onClose, currentWorkspaceId }) => {
 
   const navigate = useNavigate();
+  const { isDark } = useTheme();
 
   const {user} = useSelector((state)=>state.auth);
 
@@ -56,6 +50,7 @@ return (
   onClick={(e)=>e.stopPropagation()}
   className="
   w-[600px]
+  max-w-[calc(100vw-1.5rem)]
   max-h-[80vh]
   overflow-y-auto
   rounded-xl
@@ -85,7 +80,7 @@ Current Workspace
 
 
 {
-currentBoards.map((board,index)=>(
+currentBoards.map((board)=>(
 
 <div
 key={board.id}
@@ -100,9 +95,9 @@ overflow-hidden
 >
 
 
-<img
-src={covers[index%covers.length]}
-className="h-20 w-full object-cover"
+<div
+className="h-20 w-full"
+style={backgroundStyle(board.background, board.id, isDark)}
 />
 
 

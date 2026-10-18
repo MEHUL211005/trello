@@ -10,26 +10,36 @@ import {
   updateBoard,
   deleteBoard,
   searchBoards,
-  toggleStarBoard,
 } from "../api/boardApi";
 import { getWorkspaceById } from "../api/workspaceApi";
-import { FaEdit, FaTrash, FaFolderOpen, FaRegStar } from "react-icons/fa";
+import {
+  ArrowRight,
+  ChevronLeft,
+  LayoutGrid,
+  Lock,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-
-const covers = [
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800",
-  "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=800",
-  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800",
-  "https://images.unsplash.com/photo-1511300636408-a63a89df3482?w=800",
-  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800",
-];
+import SharedBoards from "../components/SharedBoards";
+import { getErrorMessage } from "../lib/validation";
+import { coverFor } from "../lib/theme";
+import BackgroundPicker from "../components/BackgroundPicker";
+import { useTheme } from "../context/theme";
+import { useToggleStar } from "../hooks/useToggleStar";
+import { DEFAULT_BACKGROUND, backgroundStyle } from "../lib/boardBackgrounds";
 
 const Workspace = () => {
   const { workspaceId } = useParams();
 
   const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const star = useToggleStar();
 
   const { user } = useSelector((state) => state.auth);
 
@@ -47,6 +57,7 @@ const Workspace = () => {
   }, [search]);
 
   const [boardName, setBoardName] = useState("");
+  const [boardBackground, setBoardBackground] = useState(DEFAULT_BACKGROUND);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -73,9 +84,7 @@ const Workspace = () => {
   });
 
   const boards = data?.boards || [];
-  const starredBoards = boards.filter(
-  (board) => board.isStarred
-);
+  const starredBoards = boards.filter((board) => board.isStarred);
 
   const searchQuery = debouncedSearch;
 
@@ -104,15 +113,26 @@ const Workspace = () => {
       });
 
       setBoardName("");
+      setBoardBackground(DEFAULT_BACKGROUND);
 
       setShowCreateModal(false);
+
+      toast.success("Board created");
+    },
+
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not create the board"));
     },
   });
   const handleCreateBoard = () => {
-    if (!boardName.trim()) return;
+    if (!boardName.trim()) {
+      toast.error("Please enter a board name");
+      return;
+    }
 
     createMutation.mutate({
       name: boardName,
+      background: boardBackground,
 
       workspaceId,
     });
@@ -127,10 +147,19 @@ const Workspace = () => {
       queryClient.invalidateQueries({
         queryKey: ["boards", workspaceId],
       });
+
+      toast.success("Board renamed");
+    },
+
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not rename the board"));
     },
   });
   const handleEditBoard = () => {
-    if (!editBoardName.trim()) return;
+    if (!editBoardName.trim()) {
+      toast.error("Board name cannot be empty");
+      return;
+    }
 
     updateMutation.mutate({
       id: editBoardId,
@@ -154,6 +183,12 @@ const Workspace = () => {
       queryClient.invalidateQueries({
         queryKey: ["boards", workspaceId],
       });
+
+      toast.success("Board deleted");
+    },
+
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not delete the board"));
     },
   });
 
@@ -161,83 +196,182 @@ const Workspace = () => {
     deleteMutation.mutate(deleteBoardId);
     setDeleteBoardId(null);
   };
-  const handleStarClick = async (e, boardId) => {
+  // Stars are personal; the hook flips it everywhere on screen at once
+  const handleStarClick = (e, board) => {
     e.stopPropagation();
-    const normalizedBoardId = String(boardId);
-
-    try {
-      queryClient.setQueryData(["boards", workspaceId], (oldData) => {
-        if (!oldData || !Array.isArray(oldData.boards)) return oldData;
-
-        return {
-          ...oldData,
-          boards: oldData.boards.map((item) =>
-            String(item.id) === normalizedBoardId
-              ? { ...item, isStarred: !item.isStarred }
-              : item,
-          ),
-        };
-      });
-
-      queryClient.setQueryData(["board", normalizedBoardId], (oldData) => {
-        if (!oldData) return oldData;
-
-        return {
-          ...oldData,
-          board: {
-            ...oldData.board,
-            isStarred: !oldData.board.isStarred,
-          },
-        };
-      });
-
-      await toggleStarBoard(boardId);
-
-      queryClient.invalidateQueries({
-        queryKey: ["boards", workspaceId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["board", normalizedBoardId],
-      });
-    } catch (error) {
-      console.error("Star update error:", error);
-      queryClient.invalidateQueries({
-        queryKey: ["boards", workspaceId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["board", normalizedBoardId],
-      });
-    }
+    star.mutate({ boardId: board.id, starred: !board.isStarred });
   };
+
+  // One board tile, used for both the starred row and the full list
+  const renderBoardCard = (board, { allowEdit }) => (
+    <div
+      key={board.id}
+      onClick={() => navigate(`/workspace/${workspaceId}/board/${board.id}`)}
+      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand-200 hover:shadow-xl hover:shadow-brand-700/10"
+    >
+      <div
+        className="relative h-24"
+        style={backgroundStyle(board.background, board.id, isDark)}
+      >
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)",
+            backgroundSize: "18px 18px",
+          }}
+        />
+        {/* Faux lists, so a tile reads as a board */}
+        <div className="absolute bottom-0 left-4 flex items-end gap-1.5">
+          {[26, 38, 20].map((height, i) => (
+            <span
+              key={i}
+              className="w-6 rounded-t-md bg-white/35"
+              style={{ height }}
+            />
+          ))}
+        </div>
+        {board.isStarred && (
+          <Star
+            size={16}
+            className="absolute bottom-2.5 right-3 fill-sun-400 text-sun-400"
+          />
+        )}
+      </div>
+
+      <div className="p-4">
+        {allowEdit && editBoardId === board.id ? (
+          <div>
+            <input
+              value={editBoardName}
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setEditBoardName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleEditBoard();
+                if (e.key === "Escape") {
+                  setEditBoardId(null);
+                  setEditBoardName("");
+                }
+              }}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+            />
+
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditBoard();
+                }}
+                className="flex-1 rounded-lg bg-brand-600 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                Save
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditBoardId(null);
+                  setEditBoardName("");
+                }}
+                className="flex-1 rounded-lg bg-slate-100 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <h2 className="truncate text-base font-bold text-slate-900">
+            {board.name}
+          </h2>
+        )}
+
+        <p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-600 opacity-0 transition group-hover:opacity-100">
+          Open board <ArrowRight size={13} />
+        </p>
+      </div>
+
+      <div className="absolute right-3 top-3 hidden gap-1.5 group-hover:flex">
+        <button
+          onClick={(e) => handleStarClick(e, board)}
+          aria-label="Star board"
+          className="rounded-lg bg-white/95 p-2 shadow transition hover:bg-white"
+        >
+          <Star
+            size={14}
+            className={
+              board.isStarred
+                ? "fill-sun-400 text-sun-400"
+                : "text-slate-500"
+            }
+          />
+        </button>
+
+        {allowEdit && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditBoardId(board.id);
+                setEditBoardName(board.name);
+              }}
+              aria-label="Rename board"
+              className="rounded-lg bg-white/95 p-2 text-slate-700 shadow transition hover:bg-white hover:text-brand-700"
+            >
+              <Pencil size={14} />
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteBoardId(board.id);
+              }}
+              aria-label="Delete board"
+              className="rounded-lg bg-white/95 p-2 text-rose-500 shadow transition hover:bg-rose-50"
+            >
+              <Trash2 size={14} />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   // ==========================
   // CHECKS
   // ==========================
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        Please login first
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
+        Please log in to continue
       </div>
     );
   }
 
   if (workspaceLoading || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading ...
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-100 border-t-brand-600" />
       </div>
     );
   }
 
   if (!workspaceData?.workspace) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Workspace Not Found
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50">
+        <p className="text-xl font-bold text-slate-800">Workspace not found</p>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="bg-brand-gradient rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
+        >
+          Back to dashboard
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-600">
+    <div className="min-h-screen bg-slate-50 text-slate-600">
       {/* HEADER */}
       <Navbar
         search={search}
@@ -248,249 +382,143 @@ const Workspace = () => {
       <div className="flex">
         <Sidebar />
 
-        <main className="flex-1 overflow-auto pt-8 px-6">
-          <div className="mb-10 ml-8 flex items-center gap-5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-blue-600 text-2xl font-bold text-white">
-              {workspaceName.charAt(0).toUpperCase()}
-            </div>
+        <main className="min-w-0 flex-1">
+          <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition hover:text-brand-700"
+            >
+              <ChevronLeft size={16} />
+              All workspaces
+            </button>
 
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800">
-                {workspaceName}
-              </h1>
-
-              <div className="mt-1 flex items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium">
-                  Private Workspace
-                </span>
-
-                <span className="text-sm text-slate-500">
-                  {displayedBoards.length} Boards
-                </span>
-              </div>
-            </div>
-          </div>
-         <div className="mt-20 border-t border-slate-200"></div>
-
-<div className="mx-auto max-w-7xl px-6">
-
-  {/* STARRED BOARDS SECTION */}
-
-  {starredBoards.length > 0 && (
-    <div className="pt-6 mb-10">
-
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-800">
-          ⭐ Starred Boards
-        </h1>
-
-        <p className="text-sm text-slate-500">
-          {starredBoards.length} starred boards
-        </p>
-      </div>
-
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-
-        {starredBoards.map((board, index) => (
-          <div
-            key={board.id}
-            onClick={() =>
-              navigate(`/workspace/${workspaceId}/board/${board.id}`)
-            }
-            className="group relative overflow-hidden rounded-xl bg-white border border-gray-200 hover:shadow-lg transition-all duration-200 cursor-pointer"
-          >
-
-            <img
-              src={covers[index % covers.length]}
-              alt={board.name}
-              className="h-24 w-full object-cover"
-            />
-
-
-            <div className="p-3">
-
-              <h2 className="text-lg font-semibold">
-                {board.name}
-              </h2>
-
-
-              <p className="mt-1 text-xs text-gray-500">
-                {board.lists?.length || 0} Lists
-              </p>
-
-
-              <div className="absolute right-3 top-3 hidden group-hover:flex">
-
-                <button
-                  onClick={(e) => handleStarClick(e, board.id)}
-                  className="rounded-md bg-white p-2 shadow"
-                >
-
-                  <FaRegStar
-                    size={14}
-                    className="text-yellow-400 fill-yellow-400"
-                  />
-
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-        ))}
-
-      </div>
-
-    </div>
-  )}
-
-
-
-  {/* YOUR BOARDS HEADER */}
-
-  <div className="pt-4 pb-6 flex items-center gap-3">
-
-    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-
-      <FaFolderOpen className="text-lg text-blue-600" />
-
-    </div>
-
-
-    <div>
-
-      <h1 className="text-2xl font-semibold text-slate-800">
-        Your Boards
-      </h1>
-
-
-      <p className="text-sm text-slate-500">
-        {boards.length} boards
-      </p>
-
-    </div>
-
-  </div>
-
-            {isSearching && (
-              <div className="mb-4 text-sm text-sky-700">
-                Searching boards...
-              </div>
-            )}
-
-            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayedBoards.map((board, index) => (
+            {/* WORKSPACE HEADER */}
+            <section className="flex flex-col gap-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-5">
                 <div
-                  key={board.id}
-                  onClick={() =>
-                    navigate(`/workspace/${workspaceId}/board/${board.id}`)
-                  }
-                  className="group relative overflow-hidden rounded-xl bg-white border border-gray-200 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                  className="flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-extrabold text-white shadow-lg"
+                  style={{ background: coverFor(workspaceId) }}
                 >
-                  <img
-                    src={covers[index % covers.length]}
-                    alt={board.name}
-                    className="h-24 w-full object-cover"
-                  />
+                  {workspaceName.charAt(0).toUpperCase()}
+                </div>
 
-                  <div className="p-3">
-                    {editBoardId === board.id ? (
-                      <div>
-                        <input
-                          value={editBoardName}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditBoardName(e.target.value)}
-                          className="w-full rounded-lg border p-2"
-                        />
+                <div>
+                  <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
+                    {workspaceName}
+                  </h1>
 
-                        <div className="mt-2 flex gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                      <Lock size={11} />
+                      Private workspace
+                    </span>
 
-                              handleEditBoard();
-                            }}
-                            className="flex-1 rounded-lg bg-sky-600 py-2 text-white"
-                          >
-                            Save
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-
-                              setEditBoardId(null);
-
-                              setEditBoardName("");
-                            }}
-                            className="flex-1 rounded-lg bg-slate-200 py-2"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <h2 className="text-lg font-semibold">{board.name}</h2>
-                    )}
-
-                    <p className="mt-1 text-xs text-gray-500">
-                      {board.lists?.length || 0} Lists
-                    </p>
-
-                    <div className="absolute right-3 top-3 hidden gap-2 group-hover:flex">
-                      <button
-                        onClick={(e) => handleStarClick(e, board.id)}
-                        className="rounded-md bg-white p-2 shadow"
-                      >
-                        <FaRegStar
-                          size={14}
-                          className={
-                            board.isStarred
-                              ? "text-yellow-400 fill-yellow-400"
-                              : "text-slate-500"
-                          }
-                        />
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-
-                          setEditBoardId(board.id);
-
-                          setEditBoardName(board.name);
-                        }}
-                        className="rounded-md bg-white p-2 shadow"
-                      >
-                        <FaEdit />
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-
-                          setDeleteBoardId(board.id);
-                        }}
-                        className="rounded-md bg-white p-2 text-red-500 shadow"
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
+                      <LayoutGrid size={11} />
+                      {boards.length} {boards.length === 1 ? "board" : "boards"}
+                    </span>
                   </div>
                 </div>
-              ))}
-
-              {/* CREATE BOARD CARD */}
-
-              <div
-                onClick={() => setShowCreateModal(true)}
-                className="flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-slate-300 bg-slate-200"
-              >
-                <p className="text-lg font-semibold">Create new Board</p>
               </div>
-            </div>
+
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-brand-gradient flex items-center justify-center gap-1.5 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-md shadow-brand-600/25 transition hover:brightness-110"
+              >
+                <Plus size={16} />
+                New board
+              </button>
+            </section>
+
+            {/* STARRED BOARDS */}
+            {starredBoards.length > 0 && !searchQuery && (
+              <section className="mt-10">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-sun-500">
+                    <Star size={20} className="fill-sun-400" />
+                  </span>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">
+                      Starred boards
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      Your favourites, one click away
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {starredBoards.map((board) =>
+                    renderBoardCard(board, { allowEdit: false }),
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* YOUR BOARDS */}
+            <section className="mt-10">
+              <div className="mb-5 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+                  <LayoutGrid size={20} />
+                </span>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    {searchQuery ? "Search results" : "Your boards"}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    {searchQuery
+                      ? `Showing matches for "${searchQuery}"`
+                      : `${boards.length} ${boards.length === 1 ? "board" : "boards"} in this workspace`}
+                  </p>
+                </div>
+              </div>
+
+              {isSearching ? (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {[0, 1, 2].map((n) => (
+                    <div
+                      key={n}
+                      className="h-40 animate-pulse rounded-2xl bg-slate-200/70"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {displayedBoards.map((board) =>
+                    renderBoardCard(board, { allowEdit: true }),
+                  )}
+
+                  {/* CREATE BOARD TILE */}
+                  {!searchQuery && (
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="group flex min-h-40 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white/60 p-6 text-slate-500 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
+                    >
+                      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 transition group-hover:bg-brand-100">
+                        <Plus size={20} />
+                      </span>
+                      <span className="text-base font-semibold">
+                        Create new board
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {!isSearching && searchQuery && displayedBoards.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
+                  <p className="text-lg font-bold text-slate-800">
+                    No boards found
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Try a different name or clear the search.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {/* BOARDS SHARED BY OTHERS */}
+            {!searchQuery && <SharedBoards />}
           </div>
         </main>
       </div>
@@ -498,30 +526,79 @@ const Workspace = () => {
       {/* CREATE MODAL */}
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[90%] max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-semibold">Create Board</h2>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm"
+          onClick={() => {
+            setShowCreateModal(false);
+            setBoardName("");
+          }}
+        >
+          <div
+            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-7 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="bg-brand-gradient mb-4 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg shadow-brand-600/30">
+              <LayoutGrid size={22} />
+            </span>
+
+            <h2 className="text-xl font-bold text-slate-900">
+              Create a board
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Boards hold the lists and cards for a project.
+            </p>
+
             <input
               value={boardName}
+              autoFocus
               onChange={(e) => setBoardName(e.target.value)}
-              placeholder="Board name..."
-              className="mt-5 w-full rounded-lg border p-3"
+              onKeyDown={(e) => e.key === "Enter" && handleCreateBoard()}
+              placeholder="e.g. Website redesign"
+              className="mt-5 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-[15px] outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
             />
+
+            <div
+              className="relative mt-5 flex h-24 items-end overflow-hidden rounded-xl p-3 ring-1 ring-black/10"
+              style={backgroundStyle(boardBackground, 0, isDark)}
+            >
+              <div
+                className="absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)",
+                  backgroundSize: "16px 16px",
+                }}
+              />
+              <p className="relative truncate text-base font-bold text-white drop-shadow">
+                {boardName.trim() || "Your board"}
+              </p>
+            </div>
+
+            <p className="mb-2 mt-5 text-sm font-semibold text-slate-700">
+              Background
+            </p>
+            <BackgroundPicker
+              value={boardBackground}
+              onChange={setBoardBackground}
+            />
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
                   setBoardName("");
+                  setBoardBackground(DEFAULT_BACKGROUND);
                 }}
-                className="rounded-lg bg-slate-200 px-4 py-2"
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateBoard}
-                className="rounded-lg bg-sky-600 px-4 py-2 text-white"
+                disabled={createMutation.isPending}
+                className="bg-brand-gradient rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand-600/25 transition hover:brightness-110 disabled:opacity-70"
               >
-                Create
+                {createMutation.isPending ? "Creating..." : "Create board"}
               </button>
             </div>
           </div>
@@ -530,26 +607,35 @@ const Workspace = () => {
 
       {/* DELETE MODAL */}
       {deleteBoardId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[350px] rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-red-600">
-              Delete Board?
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              This action cannot be undone.
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm"
+          onClick={() => setDeleteBoardId(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <Trash2 size={22} />
+            </span>
+
+            <h2 className="text-lg font-bold text-slate-900">Delete board?</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              All lists and cards on this board will be removed. This action
+              cannot be undone.
             </p>
-            <div className="mt-5 flex gap-3">
-              <button
-                onClick={handleDeleteBoard}
-                className="flex-1 rounded-lg bg-red-600 py-2 text-white"
-              >
-                Delete
-              </button>
+            <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setDeleteBoardId(null)}
-                className="flex-1 rounded-lg bg-slate-200 py-2"
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
+              </button>
+              <button
+                onClick={handleDeleteBoard}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-rose-600/25 hover:bg-rose-500"
+              >
+                Delete
               </button>
             </div>
           </div>

@@ -25,6 +25,13 @@ export const toggleCardCompletedApi = async (cardId) => {
 
   return response.data;
 };
+// ARCHIVE (archived = true) OR RESTORE (archived = false) A CARD
+export const archiveCard = async (id, archived = true) => {
+  const res = await api.patch(`/cards/${id}/archive`, { archived });
+
+  return res.data;
+};
+
 export const reorderCards = async (data) => {
   const res = await api.patch("/cards/reorder", data);
 

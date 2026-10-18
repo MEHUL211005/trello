@@ -1,3 +1,4 @@
+import { queryClient } from "../lib/queryClient";
 import axios from "axios";
 import { store } from "../redux/store";
 import { setCredentials, logout } from "../redux/authSlice";
@@ -42,7 +43,17 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Never try to refresh for the auth endpoints themselves: a 401 from
+    // login means bad credentials, a 401 from refresh means no session.
+    const isAuthEndpoint = /\/auth\/(login|register|refresh|logout)/.test(
+      originalRequest?.url || "",
+    );
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -82,6 +93,7 @@ axiosInstance.interceptors.response.use(
         processQueue(refreshError, null);
 
         store.dispatch(logout());
+        queryClient.clear();
 
         return Promise.reject(refreshError);
       } finally {

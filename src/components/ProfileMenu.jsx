@@ -1,23 +1,27 @@
-import axiosInstance from "../api/axios";
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { logout } from "../redux/authSlice";
+import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { FaUserCircle, FaSignOutAlt } from "react-icons/fa";
+import { LogOut, Moon, Settings, Sun, UserRound } from "lucide-react";
+
+import LogoutDialog from "./LogoutDialog";
+import { useTheme } from "../context/theme";
+import { useLogout } from "../hooks/useLogout";
+import { getInitials } from "../lib/user";
 
 const ProfileMenu = () => {
   const [open, setOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const dispatch = useDispatch();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const logout = useLogout();
 
   const { user } = useSelector((state) => state.auth);
 
   const menuRef = useRef(null);
 
-  // ---------------- OUTSIDE CLICK CLOSE ----------------
+  // Close on an outside click or Escape
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -26,10 +30,7 @@ const ProfileMenu = () => {
     };
 
     const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        setShowConfirm(false);
-      }
+      if (event.key === "Escape") setOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -41,109 +42,101 @@ const ProfileMenu = () => {
     };
   }, []);
 
-  useEffect(() => {
-    document.body.style.overflow = showConfirm ? "hidden" : "";
-
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [showConfirm]);
-
-  const closeConfirmModal = () => {
-    setShowConfirm(false);
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await logout();
   };
-
-  // ---------------- LOGOUT ----------------
-const handleLogout = async () => {
-  try {
-    await axiosInstance.post("/auth/logout");
-  } catch (error) {
-    console.error("Logout error:", error);
-  } finally {
-    dispatch(logout());
-    setShowConfirm(false);
-    setOpen(false);
-    navigate("/login");
-  }
-};
 
   if (!user) return null;
 
+  const go = (path) => {
+    setOpen(false);
+    navigate(path);
+  };
+
+  const row =
+    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100";
+
   return (
     <div className="relative" ref={menuRef}>
-      {/* ICON */}
+      {/* AVATAR */}
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="text-2xl text-slate-200 hover:text-blue-400 transition cursor-pointer"
+        aria-label="Open profile menu"
+        className="bg-brand-gradient flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-sm font-bold text-white shadow-md shadow-brand-600/30 ring-2 ring-white/70 transition hover:brightness-110"
       >
-        <FaUserCircle />
+        {getInitials(user.name)}
       </button>
 
       {/* DROPDOWN */}
       {open && (
-        <div className="absolute right-0 mt-2 w-44 rounded-xl bg-slate-900 border border-slate-700 shadow-lg overflow-hidden z-[1000]">
+        <div className="absolute right-0 z-[1000] mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-xl shadow-brand-900/10">
           {/* USER INFO */}
-          <div className="px-3 py-2 text-sm text-slate-300 border-b border-slate-700">
-            👤 {user.name}
+          <div className="flex items-center gap-3 border-b border-slate-100 bg-brand-gradient-soft px-4 py-3.5">
+            <span className="bg-brand-gradient flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white">
+              {getInitials(user.name)}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">
+                {user.name}
+              </p>
+              <p className="truncate text-xs text-slate-500">{user.email}</p>
+            </div>
           </div>
 
-          {/* LOGOUT */}
-          <button
-            onClick={() => {
-              setShowConfirm(true);
-              setOpen(false);
-            }}
-            className="w-full text-left px-3 py-2 text-red-400 hover:bg-slate-800 transition "
-          >
-            Logout
-          </button>
+          <div className="p-1.5">
+            <button onClick={() => go("/profile")} className={row}>
+              <UserRound size={16} />
+              My profile
+            </button>
+
+            <button onClick={() => go("/settings")} className={row}>
+              <Settings size={16} />
+              Settings
+            </button>
+
+            <button
+              role="switch"
+              aria-checked={isDark}
+              onClick={toggleTheme}
+              className={row}
+            >
+              {isDark ? <Moon size={16} /> : <Sun size={16} />}
+              <span className="flex-1">Dark mode</span>
+              <span
+                className={`relative h-5 w-9 rounded-full transition-colors duration-200 ${
+                  isDark ? "bg-brand-600" : "bg-slate-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all duration-200 ${
+                    isDark ? "left-[18px]" : "left-0.5"
+                  }`}
+                />
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowConfirm(true);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+            >
+              <LogOut size={16} />
+              Log out
+            </button>
+          </div>
         </div>
       )}
 
-      {showConfirm &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 px-4 backdrop-blur-sm"
-            onClick={closeConfirmModal}
-          >
-            <div
-              className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl shadow-slate-950/70"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/15 text-red-400">
-                  <FaSignOutAlt size={20} />
-                </div>
-
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    Confirm logout
-                  </h2>
-                  <p className="text-sm text-slate-400">
-                    Are you sure you want to sign out of your account?
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={closeConfirmModal}
-                  className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-700"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {showConfirm && (
+        <LogoutDialog
+          busy={loggingOut}
+          onConfirm={handleLogout}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
     </div>
   );
 };

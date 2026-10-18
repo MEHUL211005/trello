@@ -1,37 +1,54 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateDueDate } from "../../api/cardApi";
+import toast from "react-hot-toast";
 
-function DatePicker({ cardContext, onClose }) {
-  const [date, setDate] = useState("");
+import { updateDueDate } from "../../api/cardApi";
+import { getErrorMessage } from "../../lib/validation";
+import { addDays, toInputDate } from "../../lib/time";
+import { inputCls, primaryBtn } from "./ui";
+
+const QUICK_PICKS = [
+  { label: "Today", days: 0 },
+  { label: "Tomorrow", days: 1 },
+  { label: "Next week", days: 7 },
+];
+
+function DatePicker({ cardContext, dueDate, onClose }) {
+  const [date, setDate] = useState(toInputDate(dueDate));
 
   const queryClient = useQueryClient();
 
   const updateDueDateMutation = useMutation({
     mutationFn: ({ cardId, dueDate }) => updateDueDate(cardId, dueDate),
 
-    onSuccess: () => {
+    onSuccess: (_data, { dueDate }) => {
       queryClient.invalidateQueries({
         queryKey: ["board", cardContext.boardId],
       });
       queryClient.invalidateQueries({
         queryKey: ["board", cardContext.boardId, "filters"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["activities", cardContext.cardId],
+      });
 
+      toast.success(dueDate ? "Due date saved" : "Due date removed");
       onClose();
     },
 
     onError: (error) => {
-      console.log("Due date update error:", error);
+      toast.error(getErrorMessage(error, "Could not update the due date"));
     },
   });
 
   const handleSave = () => {
-    if (!date) return;
+    if (!date) {
+      toast.error("Pick a date first");
+      return;
+    }
 
     updateDueDateMutation.mutate({
       cardId: cardContext.cardId,
-
       dueDate: date,
     });
   };
@@ -39,89 +56,53 @@ function DatePicker({ cardContext, onClose }) {
   const handleRemove = () => {
     updateDueDateMutation.mutate({
       cardId: cardContext.cardId,
-
       dueDate: null,
     });
   };
 
   return (
-    <div
-      className="
-absolute
-left-0
-top-full
-z-50
-mt-2
-w-80
-rounded-lg
-border
-border-slate-200
-bg-white
-p-4
-shadow-xl
-"
-    >
-      <h3
-        className="
-mb-4
-text-center
-text-sm
-font-semibold
-text-slate-800
-"
-      >
-        Due Date
-      </h3>
+    <div>
+      <div className="mb-3 flex gap-2">
+        {QUICK_PICKS.map((pick) => (
+          <button
+            key={pick.label}
+            onClick={() => setDate(addDays(pick.days))}
+            className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+              date === addDays(pick.days)
+                ? "border-brand-300 bg-brand-50 text-brand-700"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {pick.label}
+          </button>
+        ))}
+      </div>
 
       <input
         type="date"
         value={date}
         onChange={(e) => setDate(e.target.value)}
-        className="
-w-full
-rounded-md
-border
-border-slate-300
-px-3
-py-2
-text-sm
-outline-none
-"
+        className={inputCls}
       />
 
       <div className="mt-4 flex gap-2">
         <button
           onClick={handleSave}
           disabled={updateDueDateMutation.isPending}
-          className="
-flex-1
-rounded-md
-bg-blue-600
-px-3
-py-2
-text-sm
-text-white
-hover:bg-blue-500
-"
+          className={`${primaryBtn} flex-1`}
         >
           {updateDueDateMutation.isPending ? "Saving..." : "Save"}
         </button>
 
-        <button
-          onClick={handleRemove}
-          className="
-flex-1
-rounded-md
-bg-slate-200
-px-3
-py-2
-text-sm
-text-slate-700
-hover:bg-slate-300
-"
-        >
-          Remove
-        </button>
+        {dueDate && (
+          <button
+            onClick={handleRemove}
+            disabled={updateDueDateMutation.isPending}
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+          >
+            Remove
+          </button>
+        )}
       </div>
     </div>
   );

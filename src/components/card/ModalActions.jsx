@@ -1,19 +1,72 @@
-import { Paperclip, Tag, Calendar, CheckSquare, UserPlus, Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Calendar,
+  Check,
+  CheckSquare,
+  Paperclip,
+  Tag,
+  UserPlus,
+} from "lucide-react";
+import toast from "react-hot-toast";
+
 import {
   toggleLabel,
   getCardLabels,
   getBoardLabels,
   createLabel,
 } from "../../api/labelApi";
+import { getErrorMessage } from "../../lib/validation";
 import DatePicker from "./DatePicker";
 import MembersPopover from "./MembersPopover";
 import ChecklistPopover from "./ChecklistPopover";
 import AttachmentPopover from "./AttachmentPopover";
+import { Popover, inputCls, primaryBtn } from "./ui";
 
-function ModalActions({ userId, workspaceId, boardId, listId, cardId }) {
+const LABEL_COLORS = [
+  "#22c55e",
+  "#3b82f6",
+  "#eab308",
+  "#ef4444",
+  "#a855f7",
+  "#ec4899",
+  "#f97316",
+  "#14b8a6",
+];
+
+const MAX_LABEL_NAME = 30;
+
+function ModalActions({
+  userId,
+  workspaceId,
+  boardId,
+  listId,
+  cardId,
+  dueDate,
+  assignedIds = [],
+}) {
   const queryClient = useQueryClient();
+  const containerRef = useRef(null);
+
+  // Only one popover is open at a time
+  const [open, setOpen] = useState(null);
+
+  const toggle = (name) => setOpen((current) => (current === name ? null : name));
+  const close = () => setOpen(null);
+
+  // Click anywhere else to dismiss
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleClick = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setOpen(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
 
   const { data: boardLabelsData } = useQuery({
     queryKey: ["boardLabels", boardId],
@@ -29,171 +82,91 @@ function ModalActions({ userId, workspaceId, boardId, listId, cardId }) {
 
   const availableLabels = boardLabelsData?.labels || [];
   const cardLabelIds = new Set(
-    (cardLabelsData?.labels || []).map((label) => label.id)
+    (cardLabelsData?.labels || []).map((label) => label.id),
   );
 
   const toggleLabelMutation = useMutation({
-    mutationFn: ({ cardId, labelId }) =>
-      toggleLabel({
-        cardId,
-        labelId,
-      }),
+    mutationFn: ({ cardId, labelId }) => toggleLabel({ cardId, labelId }),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["cardLabels", cardId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId, "filters"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["board", boardId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["cardLabels", cardId] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardId, "filters"] });
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
     },
 
     onError: (error) => {
-      console.log("LABEL TOGGLE ERROR:", error);
+      toast.error(getErrorMessage(error, "Could not update the label"));
     },
   });
 
-  const labelColorPalette = [
-    "#22c55e",
-    "#3b82f6",
-    "#eab308",
-    "#ef4444",
-    "#a855f7",
-    "#ec4899",
-    "#f97316",
-    "#14b8a6",
-  ];
-
   const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState(labelColorPalette[0]);
+  const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
 
   const createLabelMutation = useMutation({
     mutationFn: () =>
       createLabel({
-        name: newLabelName,
+        name: newLabelName.trim(),
         color: newLabelColor,
         boardId,
       }),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["boardLabels", boardId],
-      });
-
+      queryClient.invalidateQueries({ queryKey: ["boardLabels", boardId] });
       setNewLabelName("");
+      toast.success("Label created");
     },
 
     onError: (error) => {
-      console.log("CREATE LABEL ERROR:", error);
+      toast.error(getErrorMessage(error, "Could not create the label"));
     },
   });
 
-  const [showLabels, setShowLabels] = useState(false);
-  const [showDates, setShowDates] = useState(false);
-  const [showMembers, setShowMembers] = useState(false);
-  const [showChecklist, setShowChecklist] = useState(false);
-  const [showAttachments, setShowAttachments] = useState(false);
+  const handleCreateLabel = () => {
+    if (!newLabelName.trim()) {
+      toast.error("Give the label a name");
+      return;
+    }
+    createLabelMutation.mutate();
+  };
+
+  const context = { userId, workspaceId, boardId, listId, cardId };
+
   const buttons = [
-    {
-      icon: <Paperclip size={16} />,
-      label: "Attachments",
-    },
-    {
-      icon: <Tag size={16} />,
-      label: "Labels",
-    },
-    {
-      icon: <Calendar size={16} />,
-      label: "Dates",
-    },
-    {
-      icon: <CheckSquare size={16} />,
-      label: "Checklist",
-    },
-    {
-      icon: <UserPlus size={16} />,
-      label: "Members",
-    },
+    { name: "labels", label: "Labels", icon: Tag, align: "left" },
+    { name: "dates", label: "Dates", icon: Calendar, align: "left" },
+    { name: "members", label: "Members", icon: UserPlus, align: "left" },
+    { name: "checklist", label: "Checklist", icon: CheckSquare, align: "right" },
+    { name: "attachments", label: "Attach", icon: Paperclip, align: "right" },
   ];
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center gap-2">
+    <div ref={containerRef} className="relative">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">
+          Add to card
+        </span>
+
         {buttons.map((btn) => (
-          <div key={btn.label} className="relative">
+          <div key={btn.name} className="relative max-sm:static">
             <button
-              onClick={() => {
-                if (btn.label === "Labels") {
-                  setShowLabels((prev) => !prev);
-                  setShowDates(false);
-                  setShowMembers(false);
-                  setShowChecklist(false);
-                  setShowAttachments(false);
-                }
-
-                if (btn.label === "Dates") {
-                  setShowDates((prev) => !prev);
-                  setShowLabels(false);
-                  setShowMembers(false);
-                  setShowChecklist(false);
-                  setShowAttachments(false);
-                }
-
-                if (btn.label === "Members") {
-                  setShowMembers((prev) => !prev);
-                  setShowLabels(false);
-                  setShowDates(false);
-                  setShowChecklist(false);
-                  setShowAttachments(false);
-                }
-                if (btn.label === "Checklist") {
-                  setShowChecklist((prev) => !prev);
-
-                  setShowLabels(false);
-                  setShowDates(false);
-                  setShowMembers(false);
-                  setShowAttachments(false);
-                }
-                if (btn.label === "Attachments") {
-                  setShowAttachments((prev) => !prev);
-                  setShowLabels(false);
-                  setShowDates(false);
-                  setShowMembers(false);
-                  setShowChecklist(false);
-                }
-              }}
-              className="
-              flex
-              items-center
-              gap-1.5
-              rounded-md
-              border
-              border-slate-300
-              bg-white
-              px-3
-              py-2
-              text-sm
-              hover:bg-slate-100
-            "
+              onClick={() => toggle(btn.name)}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                open === btn.name
+                  ? "border-brand-300 bg-brand-50 text-brand-700 shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:bg-brand-50/60 hover:text-brand-700"
+              }`}
             >
-              {btn.icon}
+              <btn.icon size={16} />
               {btn.label}
             </button>
 
             {/* LABELS */}
-            {btn.label === "Labels" && showLabels && (
-              <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
-                <h3 className="mb-3 text-center text-sm font-semibold">
-                  Labels
-                </h3>
-
-                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+            {btn.name === "labels" && open === "labels" && (
+              <Popover title="Labels" onClose={close} align={btn.align}>
+                <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
                   {availableLabels.length === 0 && (
-                    <p className="text-center text-xs text-slate-400">
-                      No labels on this board yet
+                    <p className="rounded-lg bg-slate-50 py-4 text-center text-xs text-slate-400">
+                      No labels on this board yet. Create the first one below.
                     </p>
                   )}
 
@@ -201,7 +174,7 @@ function ModalActions({ userId, workspaceId, boardId, listId, cardId }) {
                     const isSelected = cardLabelIds.has(label.id);
 
                     return (
-                      <div
+                      <button
                         key={label.id}
                         onClick={() =>
                           toggleLabelMutation.mutate({
@@ -209,44 +182,53 @@ function ModalActions({ userId, workspaceId, boardId, listId, cardId }) {
                             labelId: label.id,
                           })
                         }
-                        className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-slate-100"
+                        className="flex w-full items-center gap-2 rounded-lg p-1 transition hover:bg-slate-50"
                       >
-                        <div
-                          className="flex h-6 flex-1 items-center rounded px-2"
+                        <span
+                          className="flex h-8 flex-1 items-center rounded-md px-3 text-left text-sm font-bold text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.25)]"
                           style={{ backgroundColor: label.color }}
                         >
-                          {isSelected && (
-                            <Check size={14} className="text-white" />
-                          )}
-                        </div>
-                        <span className="text-sm">{label.name}</span>
-                      </div>
+                          {label.name}
+                        </span>
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                            isSelected
+                              ? "border-brand-600 bg-brand-600 text-white"
+                              : "border-slate-300 text-transparent"
+                          }`}
+                        >
+                          <Check size={13} />
+                        </span>
+                      </button>
                     );
                   })}
                 </div>
 
-                <div className="mt-3 border-t border-slate-200 pt-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Create a label
                   </p>
 
                   <input
                     value={newLabelName}
+                    maxLength={MAX_LABEL_NAME}
                     onChange={(e) => setNewLabelName(e.target.value)}
-                    placeholder="Label name..."
-                    className="mb-2 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateLabel()}
+                    placeholder="e.g. Urgent, Design, Bug"
+                    className={`${inputCls} mb-2.5`}
                   />
 
                   <div className="mb-3 flex flex-wrap gap-2">
-                    {labelColorPalette.map((color) => (
+                    {LABEL_COLORS.map((color) => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => setNewLabelColor(color)}
+                        aria-label={`Colour ${color}`}
                         style={{ backgroundColor: color }}
-                        className={`h-6 w-6 rounded-full ${
+                        className={`h-7 w-7 rounded-full transition hover:scale-110 ${
                           newLabelColor === color
-                            ? "ring-2 ring-offset-2 ring-slate-500"
+                            ? "ring-2 ring-slate-800 ring-offset-2"
                             : ""
                         }`}
                       />
@@ -254,71 +236,42 @@ function ModalActions({ userId, workspaceId, boardId, listId, cardId }) {
                   </div>
 
                   <button
-                    onClick={() => createLabelMutation.mutate()}
-                    disabled={
-                      !newLabelName.trim() || createLabelMutation.isPending
-                    }
-                    className="w-full rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
+                    onClick={handleCreateLabel}
+                    disabled={createLabelMutation.isPending}
+                    className={`${primaryBtn} w-full`}
                   >
-                    {createLabelMutation.isPending ? "Creating..." : "Create"}
+                    {createLabelMutation.isPending ? "Creating..." : "Create label"}
                   </button>
                 </div>
-              </div>
+              </Popover>
             )}
 
-            {/* DATES */}
-            {btn.label === "Dates" && showDates && (
-              <DatePicker
-                cardContext={{
-                  userId,
-                  workspaceId,
-                  boardId,
-                  listId,
-                  cardId,
-                }}
-                onClose={() => setShowDates(false)}
-              />
+            {btn.name === "dates" && open === "dates" && (
+              <Popover title="Due date" onClose={close} align={btn.align}>
+                <DatePicker
+                  cardContext={context}
+                  dueDate={dueDate}
+                  onClose={close}
+                />
+              </Popover>
             )}
 
-            {/* MEMBERS */}
-            {btn.label === "Members" && showMembers && (
-              <MembersPopover
-                cardContext={{
-                  userId,
-                  workspaceId,
-                  boardId,
-                  listId,
-                  cardId,
-                }}
-                onClose={() => setShowMembers(false)}
-              />
+            {btn.name === "members" && open === "members" && (
+              <Popover title="Members" onClose={close} align={btn.align}>
+                <MembersPopover cardContext={context} assignedIds={assignedIds} />
+              </Popover>
             )}
 
-            {/*Checklist*/}
-            {btn.label === "Checklist" && showChecklist && (
-              <ChecklistPopover
-                cardContext={{
-                  userId,
-                  workspaceId,
-                  boardId,
-                  listId,
-                  cardId,
-                }}
-                onClose={() => setShowChecklist(false)}
-              />
+            {btn.name === "checklist" && open === "checklist" && (
+              <Popover title="Add checklist" onClose={close} align={btn.align}>
+                <ChecklistPopover cardContext={context} onClose={close} />
+              </Popover>
             )}
-            {/* Attachments */}
-            {btn.label === "Attachments" && showAttachments && (
-              <AttachmentPopover
-                cardContext={{
-                  userId,
-                  workspaceId,
-                  boardId,
-                  listId,
-                  cardId,
-                }}
-                onClose={() => setShowAttachments(false)}
-              />
+
+            {btn.name === "attachments" && open === "attachments" && (
+              <Popover title="Attach a file" onClose={close} align={btn.align}>
+                <AttachmentPopover cardContext={context} onClose={close} />
+              </Popover>
             )}
           </div>
         ))}

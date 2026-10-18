@@ -24,6 +24,12 @@ export const deleteList = async (id) => {
   return res.data;
 };
 
+// ARCHIVE (archived = true) OR RESTORE (archived = false) A LIST
+export const archiveList = async (id, archived = true) => {
+  const res = await api.patch(`/lists/${id}/archive`, { archived });
+  return res.data;
+};
+
 // REORDER LISTS
 export const reorderLists = async (data) => {
   const res = await api.patch("/lists/reorder", data);

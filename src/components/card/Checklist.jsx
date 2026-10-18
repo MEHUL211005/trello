@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CheckSquare, Check, Plus, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 import {
   addChecklistItem,
@@ -7,328 +9,235 @@ import {
   deleteChecklistItem,
   deleteChecklist,
 } from "../../api/checklistApi";
-
-import { Trash2 } from "lucide-react";
+import { useBoardPermissions } from "../../context/boardPermissions";
+import { getErrorMessage } from "../../lib/validation";
 import DeleteChecklistPopover from "./DeleteChecklistPopover";
+import { SectionTitle, primaryBtn, ghostBtn, inputCls } from "./ui";
 
-function Checklist({ card }) {
+const MAX_ITEM_LENGTH = 200;
+
+function Checklist({ card, cardContext }) {
+  const { canEdit } = useBoardPermissions();
   const [activeChecklistId, setActiveChecklistId] = useState(null);
   const [itemTitle, setItemTitle] = useState("");
   const [deleteChecklistId, setDeleteChecklistId] = useState(null);
 
   const queryClient = useQueryClient();
 
-  const refreshCard = () => {
+  // Card data comes from the board query, so refresh that (and the log)
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["board"] });
     queryClient.invalidateQueries({
-      queryKey: ["card", card.id],
+      queryKey: ["activities", cardContext.cardId],
     });
   };
 
-  // ADD ITEM
+  const onError = (message) => (error) => {
+    toast.error(getErrorMessage(error, message));
+  };
 
   const addItemMutation = useMutation({
     mutationFn: ({ checklistId, text }) => addChecklistItem(checklistId, text),
-onSuccess:(data)=>{
-
- console.log("ITEM CREATED:",data);
-
- queryClient.invalidateQueries();
-
-}
+    onSuccess: refresh,
+    onError: onError("Could not add the item"),
   });
 
-  // TOGGLE ITEM
-const toggleItemMutation = useMutation({
+  const toggleItemMutation = useMutation({
+    mutationFn: (itemId) => toggleChecklistItem(itemId),
+    onSuccess: refresh,
+    onError: onError("Could not update the item"),
+  });
 
- mutationFn:(itemId)=>
-   toggleChecklistItem(itemId),
+  const deleteItemMutation = useMutation({
+    mutationFn: (itemId) => deleteChecklistItem(itemId),
+    onSuccess: refresh,
+    onError: onError("Could not delete the item"),
+  });
 
- onSuccess:()=>{
+  const deleteChecklistMutation = useMutation({
+    mutationFn: (checklistId) => deleteChecklist(checklistId),
+    onSuccess: () => {
+      refresh();
+      toast.success("Checklist deleted");
+    },
+    onError: onError("Could not delete the checklist"),
+  });
 
-   queryClient.invalidateQueries();
-
- }
-
-});
-
-  // DELETE ITEM
-const deleteItemMutation = useMutation({
-
- mutationFn:(itemId)=>
-   deleteChecklistItem(itemId),
-
- onSuccess:()=>{
-
-   queryClient.invalidateQueries();
-
- }
-
-});
-
-  // DELETE CHECKLIST
-const deleteChecklistMutation = useMutation({
-
-  mutationFn:(checklistId)=>{
-
-    console.log("API CALLING WITH ID:", checklistId);
-
-    return deleteChecklist(checklistId);
-
-  },
-
-  onSuccess:(data)=>{
-
-    console.log("DELETE SUCCESS:", data);
-
-    queryClient.invalidateQueries();
-
-  },
-
-  onError:(error)=>{
-
-    console.log("DELETE ERROR:", error);
-
-  }
-
-});
   const checklists = card.Checklists || [];
 
   if (!checklists.length) return null;
 
   const handleAddItem = (checklistId) => {
-    if (!itemTitle.trim()) return;
+    if (!itemTitle.trim()) {
+      toast.error("Type what needs to be done first");
+      return;
+    }
 
-    addItemMutation.mutate({
-      checklistId,
-
-      text: itemTitle,
-    });
+    addItemMutation.mutate({ checklistId, text: itemTitle.trim() });
 
     setItemTitle("");
-
-    setActiveChecklistId(null);
+    // Keep the box open so several items can be added in a row
   };
-
-  const handleToggleItem = (itemId) => {
-    toggleItemMutation.mutate(itemId);
-  };
-
-  const handleDeleteItem = (itemId) => {
-    deleteItemMutation.mutate(itemId);
-  };
-
- const handleDeleteChecklist=(checklistId)=>{
-
- console.log("MUTATE ID:", checklistId);
-
- deleteChecklistMutation.mutate(checklistId);
-
-};
 
   return (
-    <div className="mt-6 space-y-6">
+    <section className="space-y-5">
       {checklists.map((list) => {
         const items = list.ChecklistItems || [];
-
         const totalItems = items.length;
-
         const completedItems = items.filter((item) => item.completed).length;
-
-        const progress =
-          totalItems === 0 ? 0 : (completedItems / totalItems) * 100;
+        const percent =
+          totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100);
+        const isDone = totalItems > 0 && completedItems === totalItems;
 
         return (
           <div
             key={list.id}
-            className="
-rounded-xl
-border
-border-slate-200
-bg-white
-p-5
-shadow-sm
-"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <div className="flex justify-between items-center">
-              <h3
-                className="
-text-base
-font-semibold
-text-slate-800
-"
+            <SectionTitle
+              icon={CheckSquare}
+              title={list.title}
+              action={
+                canEdit && (
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      setDeleteChecklistId(
+                        deleteChecklistId === list.id ? null : list.id,
+                      )
+                    }
+                    className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    Delete
+                  </button>
+
+                  {deleteChecklistId === list.id && (
+                    <DeleteChecklistPopover
+                      onDelete={() => {
+                        deleteChecklistMutation.mutate(list.id);
+                        setDeleteChecklistId(null);
+                      }}
+                      onClose={() => setDeleteChecklistId(null)}
+                    />
+                  )}
+                </div>
+                )
+              }
+            />
+
+            {/* Progress */}
+            <div className="flex items-center gap-3">
+              <span
+                className={`w-10 text-xs font-bold ${
+                  isDone ? "text-accent-600" : "text-slate-500"
+                }`}
               >
-                {list.title}
-              </h3>
-
-              <div className="relative">
-                <button
-                  onClick={() =>
-                    setDeleteChecklistId(
-                      deleteChecklistId === list.id ? null : list.id,
-                    )
-                  }
-                  className="
-rounded-md
-px-3
-py-1.5
-text-sm
-text-slate-500
-hover:bg-red-50
-hover:text-red-600
-"
-                >
-                  Delete
-                </button>
-
-                {deleteChecklistId === list.id && (
-                  <DeleteChecklistPopover
-
-onDelete={()=>{
-
-console.log("DELETE CLICKED", list.id);
-
-handleDeleteChecklist(list.id);
-
-setDeleteChecklistId(null);
-
-}}
-
-onClose={()=>setDeleteChecklistId(null)}
-
-/>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center gap-3">
-              <span className="w-10 text-xs text-slate-500">
-                {completedItems}/{totalItems}
+                {percent}%
               </span>
 
-              <div
-                className="
-h-2
-flex-1
-overflow-hidden
-rounded-full
-bg-slate-200
-"
-              >
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="
-h-full
-rounded-full
-bg-green-500
-"
-                  style={{
-                    width: `${progress}%`,
-                  }}
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    isDone
+                      ? "bg-accent-500"
+                      : "bg-gradient-to-r from-brand-500 to-fuchsia-500"
+                  }`}
+                  style={{ width: `${percent}%` }}
                 />
               </div>
+
+              <span className="text-xs text-slate-400">
+                {completedItems}/{totalItems}
+              </span>
             </div>
 
-            <div className="mt-4 space-y-2">
+            {/* Items */}
+            <div className="mt-3 space-y-0.5">
               {items.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  No checklist items yet.
+                <p className="rounded-lg bg-slate-50 py-3 text-center text-sm text-slate-400">
+                  {canEdit ? "No items yet. Add the first step below." : "No items yet."}
                 </p>
               ) : (
                 items.map((item) => (
                   <div
                     key={item.id}
-                    className="
-group
-flex
-justify-between
-items-center
-rounded-lg
-px-3
-py-2
-hover:bg-slate-100
-"
+                    className="group flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-slate-50"
                   >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={item.completed}
-                        onChange={() => handleToggleItem(item.id)}
-                        className="h-4 w-4 cursor-pointer"
-                      />
-
-                      <span
-                        className={
-                          item.completed
-                            ? "text-sm text-slate-500 line-through"
-                            : "text-sm text-slate-800"
-                        }
-                      >
-                        {item.text}
-                      </span>
-                    </div>
-
                     <button
-                      onClick={() => handleDeleteItem(item.id)}
-                      className="
-opacity-0
-group-hover:opacity-100
-"
+                      onClick={() => toggleItemMutation.mutate(item.id)}
+                      disabled={!canEdit}
+                      aria-label={
+                        item.completed ? "Mark as not done" : "Mark as done"
+                      }
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition ${
+                        item.completed
+                          ? "border-accent-500 bg-accent-500 text-white"
+                          : "border-slate-300 text-transparent enabled:hover:border-brand-400"
+                      }`}
                     >
-                      <Trash2
-                        size={16}
-                        className="text-slate-500 hover:text-red-500"
-                      />
+                      <Check size={13} strokeWidth={3} />
                     </button>
+
+                    <span
+                      className={`flex-1 text-sm ${
+                        item.completed
+                          ? "text-slate-400 line-through"
+                          : "text-slate-800"
+                      }`}
+                    >
+                      {item.text}
+                    </span>
+
+                    {canEdit && (
+                    <button
+                      onClick={() => deleteItemMutation.mutate(item.id)}
+                      aria-label="Delete item"
+                      className="rounded-md p-1 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-500 group-hover:opacity-100"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                    )}
                   </div>
                 ))
               )}
             </div>
 
-            {activeChecklistId === list.id ? (
-              <div className="mt-4">
+            {/* Add item */}
+            {!canEdit ? null : activeChecklistId === list.id ? (
+              <div className="mt-3">
                 <input
                   value={itemTitle}
+                  maxLength={MAX_ITEM_LENGTH}
+                  autoFocus
                   onChange={(e) => setItemTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddItem(list.id);
+                    if (e.key === "Escape") {
+                      e.stopPropagation();
+                      setActiveChecklistId(null);
+                      setItemTitle("");
+                    }
+                  }}
                   placeholder="Add an item"
-                  className="
-w-full
-rounded-md
-border
-px-3
-py-2
-text-sm
-"
+                  className={inputCls}
                 />
 
-                <div className="mt-3 flex gap-2">
+                <div className="mt-2.5 flex gap-2">
                   <button
                     onClick={() => handleAddItem(list.id)}
-                    className="
-rounded-md
-bg-blue-600
-px-4
-py-2
-text-sm
-text-white
-"
+                    className={primaryBtn}
                   >
-                    Add
+                    Add item
                   </button>
 
                   <button
                     onClick={() => {
                       setActiveChecklistId(null);
-
                       setItemTitle("");
                     }}
-                    className="
-rounded-md
-bg-slate-200
-px-4
-py-2
-text-sm
-"
+                    className={ghostBtn}
                   >
-                    Cancel
+                    Done
                   </button>
                 </div>
               </div>
@@ -336,25 +245,18 @@ text-sm
               <button
                 onClick={() => {
                   setActiveChecklistId(list.id);
-
                   setItemTitle("");
                 }}
-                className="
-mt-4
-rounded-lg
-bg-slate-100
-px-4
-py-2
-text-sm
-"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-brand-50 hover:text-brand-700"
               >
+                <Plus size={15} />
                 Add an item
               </button>
             )}
           </div>
         );
       })}
-    </div>
+    </section>
   );
 }
 
