@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Circle, Eye, Layers, X } from "lucide-react";
+import { CheckCircle2, Circle, Eye, ImageOff, Layers, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { useBoardPermissions } from "../../context/boardPermissions";
@@ -44,6 +44,17 @@ function ModalHeader({ card, list, title, setTitle, onClose, cardContext }) {
     }
   };
 
+  // The picture stays among the attachments; only the cover is cleared
+  const handleRemoveCover = async () => {
+    try {
+      await updateCard(card.id, { coverImage: null });
+      refreshBoard();
+      toast.success("Cover removed");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not remove the cover"));
+    }
+  };
+
   // Save the title when the box loses focus
   const handleTitleBlur = async () => {
     const next = title.trim();
@@ -79,6 +90,17 @@ function ModalHeader({ card, list, title, setTitle, onClose, cardContext }) {
             className="!rounded-none h-full"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
+
+          {canEdit && (
+            <button
+              onClick={handleRemoveCover}
+              aria-label="Remove cover"
+              className="absolute bottom-3 left-4 z-10 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-black/45 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur transition hover:bg-black/65"
+            >
+              <ImageOff size={14} />
+              Remove cover
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-brand-gradient h-2" />
@@ -87,7 +109,7 @@ function ModalHeader({ card, list, title, setTitle, onClose, cardContext }) {
       <button
         onClick={onClose}
         aria-label="Close card"
-        className={`absolute right-4 top-4 rounded-xl p-2 transition ${
+        className={`absolute right-4 top-4 z-10 rounded-xl p-2 transition ${
           card.coverImage
             ? "bg-black/35 text-white backdrop-blur hover:bg-black/55"
             : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"

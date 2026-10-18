@@ -3,7 +3,10 @@ import { useSelector } from "react-redux";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { deleteList as deleteListApi } from "../api/listApi";
+import {
+  deleteList as deleteListApi,
+  updateList as updateListApi,
+} from "../api/listApi";
 import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useBoardPermissions } from "../context/boardPermissions";
@@ -16,7 +19,7 @@ import {
 } from "../lib/imageUpload";
 import { getErrorMessage } from "../lib/validation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive } from "lucide-react";
+import { Archive, Pencil } from "lucide-react";
 import { useArchive } from "../hooks/useArchive";
 import {
   createCard,
@@ -30,6 +33,8 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+const MAX_LIST_NAME = 100;
+
 function List({ list }) {
   const { workspaceId, boardId } = useParams();
   const { canEdit, canDrag } = useBoardPermissions();
@@ -100,6 +105,39 @@ function List({ list }) {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const { archive } = useArchive(boardId);
+
+  // ================= RENAME LIST =================
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(list.name);
+  const cancelNameEdit = useRef(false);
+
+  const startNameEdit = () => {
+    cancelNameEdit.current = false;
+    setNameDraft(list.name);
+    setEditingName(true);
+  };
+
+  // Runs when the box loses focus: Enter and clicking away save, Escape cancels
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    setEditingName(false);
+
+    if (cancelNameEdit.current || name === list.name) return;
+
+    if (!name) {
+      toast.error("A list needs a name");
+      return;
+    }
+
+    try {
+      await updateListApi(list.id, { name });
+
+      queryClient.invalidateQueries({ queryKey: ["board", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not rename the list"));
+    }
+  };
 
   // ================= ARCHIVE LIST =================
   const handleArchiveList = async () => {
@@ -216,18 +254,39 @@ function List({ list }) {
         {/* HEADER */}
         <div className="flex items-center justify-between px-3 py-2">
           {/* Left */}
-          <h2
-            {...(canDrag ? attributes : {})}
-            {...(canDrag ? listeners : {})}
-            className={`select-none text-sm font-semibold text-slate-800 ${
-              canDrag ? "cursor-grab" : "cursor-default"
-            }`}
-          >
-            {list.name}
-          </h2>
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              maxLength={MAX_LIST_NAME}
+              aria-label="List name"
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") {
+                  cancelNameEdit.current = true;
+                  e.currentTarget.blur();
+                }
+              }}
+              className="mr-2 min-w-0 flex-1 rounded-md border border-brand-400 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none ring-2 ring-brand-100"
+            />
+          ) : (
+            <h2
+              {...(canDrag ? attributes : {})}
+              {...(canDrag ? listeners : {})}
+              onDoubleClick={canEdit ? startNameEdit : undefined}
+              title={canEdit ? "Double-click to rename" : undefined}
+              className={`min-w-0 select-none truncate text-sm font-semibold text-slate-800 ${
+                canDrag ? "cursor-grab" : "cursor-default"
+              }`}
+            >
+              {list.name}
+            </h2>
+          )}
 
           {/* Right */}
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {/* Number of cards */}
             <span
               className="flex h-7 min-w-7 items-center justify-center rounded-md px-2 text-xs font-medium text-slate-600"
@@ -237,6 +296,18 @@ function List({ list }) {
                 ? `${list.cards.length}/${list.totalCards}`
                 : list.cards.length}
             </span>
+
+            {/* Rename */}
+            {canEdit && (
+              <button
+                onClick={startNameEdit}
+                aria-label="Rename list"
+                title="Rename list"
+                className="cursor-pointer rounded-md p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
 
             {/* Archive */}
             {canEdit && (

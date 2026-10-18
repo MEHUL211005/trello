@@ -536,6 +536,17 @@ const Workspace = () => {
           <div
             className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-7 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
+            // Enter creates the board from the title or from a picked background
+            onKeyDown={(e) => {
+              if (
+                e.key === "Enter" &&
+                (e.target.tagName === "INPUT" ||
+                  e.target.getAttribute("role") === "radio")
+              ) {
+                e.preventDefault();
+                handleCreateBoard();
+              }
+            }}
           >
             <span className="bg-brand-gradient mb-4 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg shadow-brand-600/30">
               <LayoutGrid size={22} />
@@ -552,7 +563,6 @@ const Workspace = () => {
               value={boardName}
               autoFocus
               onChange={(e) => setBoardName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateBoard()}
               placeholder="e.g. Website redesign"
               className="mt-5 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-[15px] outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
             />

@@ -132,7 +132,7 @@ function TaskModal({ task, defaultDate, onClose }) {
           <button
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-4 top-4 rounded-lg p-1.5 text-white/80 transition hover:bg-white/15 hover:text-white"
+            className="absolute right-4 top-4 z-10 cursor-pointer rounded-lg p-1.5 text-white/80 transition hover:bg-white/15 hover:text-white"
           >
             <X size={20} />
           </button>

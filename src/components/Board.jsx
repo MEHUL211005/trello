@@ -33,6 +33,7 @@ import {
 
 import Navbar from "./Navbar";
 import BoardMenu from "./BoardMenu";
+import Spinner from "./Spinner";
 import { useTheme } from "../context/theme";
 import { useToggleStar } from "../hooks/useToggleStar";
 import { backgroundStyle } from "../lib/boardBackgrounds";
@@ -259,8 +260,8 @@ const Board = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-xl">
-        Loading Board...
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <Spinner size={48} label="Loading board" />
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, ImageIcon, Paperclip, Trash2, X } from "lucide-react";
+import { Download, FileText, ImageIcon, ImageOff, Paperclip, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { useBoardPermissions } from "../../context/boardPermissions";
@@ -13,6 +13,7 @@ import {
   deleteAttachment,
   setAttachmentAsCover,
 } from "../../api/attachmentApi";
+import { updateCard } from "../../api/cardApi";
 import DeleteAttachmentPopover from "./DeleteAttachmentPopover";
 import { SectionTitle } from "./ui";
 
@@ -66,6 +67,17 @@ function ModalAttachments({ card, cardContext }) {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Could not set the cover"));
+    },
+  });
+
+  const removeCoverMutation = useMutation({
+    mutationFn: () => updateCard(card.id, { coverImage: null }),
+    onSuccess: () => {
+      refresh();
+      toast.success("Cover removed");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not remove the cover"));
     },
   });
 
@@ -124,6 +136,17 @@ function ModalAttachments({ card, cardContext }) {
                     <span className="rounded-full bg-accent-50 px-2 py-0.5 text-[11px] font-bold text-accent-700">
                       Cover
                     </span>
+                  )}
+
+                  {canEdit && isCover && (
+                    <button
+                      onClick={() => removeCoverMutation.mutate()}
+                      disabled={removeCoverMutation.isPending}
+                      className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-60"
+                    >
+                      <ImageOff size={11} />
+                      Remove cover
+                    </button>
                   )}
 
                   {canEdit && isImage && !isCover && (

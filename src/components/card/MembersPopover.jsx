@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 
 import { getBoardMembers, toggleMember } from "../../api/membersApi";
 import { getErrorMessage } from "../../lib/validation";
+import Spinner from "../Spinner";
 import { Avatar, inputCls } from "./ui";
 
 function MembersPopover({ cardContext, assignedIds = [] }) {
@@ -54,7 +55,9 @@ function MembersPopover({ cardContext, assignedIds = [] }) {
 
       <div className="max-h-60 space-y-1 overflow-y-auto">
         {isLoading && (
-          <p className="py-4 text-center text-xs text-slate-400">Loading...</p>
+          <div className="flex justify-center py-4">
+            <Spinner size={22} tone="brand" label="Loading members" />
+          </div>
         )}
 
         {!isLoading && availableMembers.length === 0 && (

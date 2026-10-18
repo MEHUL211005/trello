@@ -17,6 +17,7 @@ import {
 import toast from "react-hot-toast";
 
 import PageShell, { PageHeader } from "../components/PageShell";
+import Spinner from "../components/Spinner";
 import TaskModal from "../components/planner/TaskModal";
 import { primaryBtn } from "../components/card/ui";
 import { getPlannerAgenda, getPlannerTasks, setPlannerTaskDone } from "../api/plannerApi";
@@ -483,9 +484,9 @@ function Planner() {
           )}
 
           {agenda.isLoading && (
-            <p className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">
-              Loading your tasks...
-            </p>
+            <div className="flex justify-center rounded-2xl border border-slate-200 bg-white px-4 py-8">
+              <Spinner size={30} tone="brand" label="Loading your tasks" />
+            </div>
           )}
 
           {agenda.data && (

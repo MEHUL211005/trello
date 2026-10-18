@@ -44,7 +44,11 @@ const Login = () => {
         }),
       );
 
-      toast.success(`Welcome back, ${response.user.name.split(" ")[0]}!`);
+      // "Welcome, Name" the first time, "Welcome back, Name" after that
+      const firstName = response.user.name.split(" ")[0];
+      toast.success(
+        response.firstLogin ? `Welcome, ${firstName}!` : `Welcome back, ${firstName}!`,
+      );
       navigate("/dashboard", { replace: true });
     },
 

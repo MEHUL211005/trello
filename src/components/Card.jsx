@@ -302,7 +302,13 @@ function Card({ card, onDelete, onEdit, onOpen, cardContext }) {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="break-words whitespace-normal text-[14px] font-medium leading-5 text-slate-800">
+                  <p
+                    className={`break-words whitespace-normal text-[14px] font-medium leading-5 ${
+                      card.isCompleted
+                        ? "text-slate-400 line-through decoration-slate-400"
+                        : "text-slate-800"
+                    }`}
+                  >
                     {card.title}
                   </p>
 

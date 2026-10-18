@@ -21,6 +21,8 @@ const {
   queryKey: ["boards", currentWorkspaceId],
   queryFn: () => getBoards(currentWorkspaceId),
   enabled: !!user && !!currentWorkspaceId,
+  // Lists may have been added or removed since this was last loaded
+  refetchOnMount: "always",
 });
 
 
@@ -109,7 +111,8 @@ style={backgroundStyle(board.background, board.id, isDark)}
 
 
 <p className="text-xs text-slate-500">
-{board.lists?.length || 0} Lists
+{board.listCount ?? board.lists?.length ?? 0}{" "}
+{(board.listCount ?? board.lists?.length ?? 0) === 1 ? "List" : "Lists"}
 </p>
 
 

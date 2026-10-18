@@ -102,7 +102,24 @@ const CreateBoardPopover = ({ onClose }) => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-4 p-4">
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={(e) => {
+          // Enter creates the board from the title, a picked background or
+          // the workspace list, not only from the title box
+          if (
+            e.key === "Enter" &&
+            (e.target.tagName === "INPUT" ||
+              e.target.tagName === "SELECT" ||
+              e.target.getAttribute("role") === "radio")
+          ) {
+            e.preventDefault();
+            handleSubmit(e);
+          }
+        }}
+        noValidate
+        className="space-y-4 p-4"
+      >
         {/* LIVE PREVIEW */}
         <div
           className="relative flex h-24 items-end overflow-hidden rounded-xl p-3 ring-1 ring-black/10"
